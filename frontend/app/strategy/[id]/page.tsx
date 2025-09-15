@@ -93,44 +93,56 @@ export default function StrategyDetail() {
     
     // Determinar cantidad de velas según el rango seleccionado
     const candleCount = {
-      '1W': 168,   // 7 días * 24 horas
-      '1M': 720,   // 30 días * 24 horas  
-      '3M': 2160,  // 90 días * 24 horas
-      '6M': 4320,  // 180 días * 24 horas
-      '1Y': 8760   // 365 días * 24 horas
+      '1W': 672,    // 7 días * 4 velas por hora (15m)
+      '1M': 2880,   // 30 días * 4 velas por hora
+      '3M': 8640,   // 90 días * 4 velas por hora
+      '6M': 17280,  // 180 días * 4 velas por hora
+      '1Y': 35040   // 365 días * 4 velas por hora
     }
     
-    const totalCandles = candleCount[selectedTimeRange as keyof typeof candleCount] || 720
+    const totalCandles = candleCount[selectedTimeRange as keyof typeof candleCount] || 2880
+    const hoursBetween = selectedTimeRange === '1W' ? 0.25 : selectedTimeRange === '1M' ? 0.25 : 0.25 // 15 minutos
     
-    // Generar velas
+    // Generar velas con patrones más realistas
     for (let i = 0; i < totalCandles; i++) {
-      const date = new Date(Date.now() - (totalCandles - i) * 60 * 60 * 1000) // Cada hora hacia atrás
+      const date = new Date(Date.now() - (totalCandles - i) * hoursBetween * 60 * 60 * 1000)
       
-      // Simulación de precio OHLC más realista
+      // Crear movimientos más naturales con ciclos
+      const dailyCycle = Math.sin((i / (24 * 4)) * 2 * Math.PI) * 0.003 // Ciclo diario
+      const weeklyCycle = Math.sin((i / (24 * 7 * 4)) * 2 * Math.PI) * 0.008 // Ciclo semanal
+      const randomNoise = (Math.random() - 0.5) * 0.004 // Ruido aleatorio
+      const trend = Math.sin(i / 1000) * 0.02 // Tendencia a largo plazo
+      
+      const movement = dailyCycle + weeklyCycle + randomNoise + trend
+      
       const open = currentPrice
-      const volatility = 0.0015 // Aumentar volatilidad para más realismo
-      const trend = Math.sin(i / 100) * 0.0005 // Tendencia suave
-      const change = (Math.random() - 0.5) * volatility + trend
+      const volatility = 0.002 + Math.abs(Math.sin(i / 200)) * 0.003 // Volatilidad variable
       
-      const high = open + Math.abs(change) + Math.random() * volatility * 0.3
-      const low = open - Math.abs(change) - Math.random() * volatility * 0.3
-      const close = open + change
+      // Crear precio de cierre más natural
+      const close = open + movement + (Math.random() - 0.5) * volatility
+      
+      // High y Low más realistas
+      const bodyRange = Math.abs(close - open)
+      const wickMultiplier = 0.5 + Math.random() * 1.5
+      
+      const high = Math.max(open, close) + (bodyRange * wickMultiplier + Math.random() * volatility * 0.5)
+      const low = Math.min(open, close) - (bodyRange * wickMultiplier + Math.random() * volatility * 0.5)
       
       const isGreen = close > open
       
-      // Simular entradas de trading cada 15-25 velas (más esparcidas)
-      const shouldHaveEntry = Math.random() < 0.05 && i > 10
-      const entrySuccess = Math.random() < 0.95 // 95% éxito como en los datos
+      // Simular entradas de trading más espaciadas y realistas
+      const shouldHaveEntry = Math.random() < 0.02 && i > 50 // Solo 2% probabilidad
+      const entrySuccess = Math.random() < (strategy?.effectiveness || 95) / 100 // Usar efectividad real
       
       data.push({
-        date: date.toLocaleDateString('es-ES'),
+        date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
         time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         open: parseFloat(open.toFixed(5)),
         high: parseFloat(high.toFixed(5)),
         low: parseFloat(low.toFixed(5)),
         close: parseFloat(close.toFixed(5)),
         color: isGreen ? 'green' : 'red',
-        isPatternStart: i > 0 && Math.random() < 0.08, // 8% chance patrón detectado
+        isPatternStart: i > 10 && Math.random() < 0.03, // 3% chance patrón detectado
         isEntry: shouldHaveEntry,
         entryType: shouldHaveEntry ? (entrySuccess ? 'win' : 'loss') : undefined
       })
@@ -139,7 +151,7 @@ export default function StrategyDetail() {
     }
     
     setCandleData(data)
-  }, [selectedTimeRange])
+  }, [selectedTimeRange, strategy?.effectiveness])
 
   const getDirectionIcon = (direction: string) => {
     return direction === 'CALL' ? 
@@ -156,104 +168,144 @@ export default function StrategyDetail() {
 
   // Componente personalizado para renderizar velas japonesas
   const CandlestickChart = ({ data }: { data: typeof priceData }) => {
-    const maxPrice = Math.max(...data.map(d => Math.max(d.high || d.price, d.price)))
-    const minPrice = Math.min(...data.map(d => Math.min(d.low || d.price, d.price)))
-    const priceRange = maxPrice - minPrice
-    const chartHeight = 300
+    // Determinar cuántas velas mostrar según el rango
+    const candlesToShow = {
+      '1W': 200,   // 200 velas para 1 semana
+      '1M': 400,   // 400 velas para 1 mes
+      '3M': 600,   // 600 velas para 3 meses
+      '6M': 800,   // 800 velas para 6 meses
+      '1Y': 1000   // 1000 velas para 1 año
+    }
+    
+    const maxCandles = candlesToShow[selectedTimeRange as keyof typeof candlesToShow] || 400
+    const displayData = data.slice(-maxCandles) // Mostrar las más recientes
+    
+    if (displayData.length === 0) return <div>No hay datos disponibles</div>
+    
+    const maxPrice = Math.max(...displayData.map(d => d.high || d.price))
+    const minPrice = Math.min(...displayData.map(d => d.low || d.price))
+    const priceRange = maxPrice - minPrice || 0.001
+    const chartHeight = 400
+    const chartWidth = Math.max(displayData.length * 8, 1000) // Mínimo 8px por vela
     
     return (
-      <div className="relative w-full" style={{ height: chartHeight + 'px' }}>
-        <svg width="100%" height={chartHeight} className="overflow-visible">
-          {/* Grid lines */}
-          {[0.25, 0.5, 0.75].map((ratio, i) => (
-            <line
-              key={i}
-              x1="0"
-              x2="100%"
-              y1={chartHeight * ratio}
-              y2={chartHeight * ratio}
-              stroke="#374151"
-              strokeDasharray="3 3"
-              strokeWidth="1"
-            />
-          ))}
-          
-          {/* Render candles */}
-          {data.slice(-50).map((candle, index) => { // Mostrar últimas 50 velas
-            const x = (index / 49) * 100 // Porcentaje de ancho
-            const candleWidth = 1.8 // Ancho de vela en %
+      <div className="relative w-full overflow-x-auto bg-gray-900 rounded-lg">
+        <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
+          <svg width={chartWidth} height={chartHeight} className="overflow-visible">
+            {/* Grid lines horizontales */}
+            {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
+              <line
+                key={i}
+                x1="0"
+                x2={chartWidth}
+                y1={chartHeight * ratio}
+                y2={chartHeight * ratio}
+                stroke="#374151"
+                strokeDasharray="2 2"
+                strokeWidth="0.5"
+              />
+            ))}
             
-            const open = candle.open || candle.price
-            const high = candle.high || candle.price
-            const low = candle.low || candle.price
-            const close = candle.close || candle.price
+            {/* Grid lines verticales */}
+            {Array.from({ length: Math.floor(displayData.length / 20) }, (_, i) => i * 20).map((index) => (
+              <line
+                key={index}
+                x1={index * 8}
+                x2={index * 8}
+                y1="0"
+                y2={chartHeight}
+                stroke="#374151"
+                strokeDasharray="2 2"
+                strokeWidth="0.5"
+              />
+            ))}
             
-            // Normalizar precios a coordenadas Y
-            const openY = chartHeight - ((open - minPrice) / priceRange) * chartHeight
-            const highY = chartHeight - ((high - minPrice) / priceRange) * chartHeight
-            const lowY = chartHeight - ((low - minPrice) / priceRange) * chartHeight
-            const closeY = chartHeight - ((close - minPrice) / priceRange) * chartHeight
-            
-            const isGreen = close > open
-            const bodyTop = Math.min(openY, closeY)
-            const bodyHeight = Math.abs(closeY - openY)
-            
-            return (
-              <g key={index}>
-                {/* Línea superior e inferior */}
-                <line
-                  x1={`${x}%`}
-                  x2={`${x}%`}
-                  y1={highY}
-                  y2={lowY}
-                  stroke={isGreen ? '#10B981' : '#EF4444'}
-                  strokeWidth="1"
-                />
-                
-                {/* Cuerpo de la vela */}
-                <rect
-                  x={`${x - candleWidth/2}%`}
-                  y={bodyTop}
-                  width={`${candleWidth}%`}
-                  height={bodyHeight || 1}
-                  fill={isGreen ? '#10B981' : '#EF4444'}
-                  stroke={isGreen ? '#10B981' : '#EF4444'}
-                  strokeWidth="1"
-                />
-                
-                {/* Puntos de entrada */}
-                {candle.isEntry && (
-                  <circle
-                    cx={`${x}%`}
-                    cy={closeY - 10}
-                    r="4"
-                    fill={candle.entryType === 'win' ? '#10B981' : '#EF4444'}
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                  />
-                )}
-                
-                {/* Patrones detectados */}
-                {candle.isPatternStart && (
-                  <circle
-                    cx={`${x}%`}
-                    cy={closeY - 20}
-                    r="3"
-                    fill="#F59E0B"
-                    stroke="#ffffff"
+            {/* Render candles */}
+            {displayData.map((candle, index) => {
+              const x = index * 8 + 4 // 8px de espacio por vela
+              const candleWidth = 6 // Ancho fijo en pixels
+              
+              const open = candle.open || candle.price
+              const high = candle.high || candle.price
+              const low = candle.low || candle.price
+              const close = candle.close || candle.price
+              
+              // Normalizar precios a coordenadas Y
+              const openY = chartHeight - ((open - minPrice) / priceRange) * chartHeight
+              const highY = chartHeight - ((high - minPrice) / priceRange) * chartHeight
+              const lowY = chartHeight - ((low - minPrice) / priceRange) * chartHeight
+              const closeY = chartHeight - ((close - minPrice) / priceRange) * chartHeight
+              
+              const isGreen = close > open
+              const bodyTop = Math.min(openY, closeY)
+              const bodyHeight = Math.max(Math.abs(closeY - openY), 1) // Mínimo 1px de altura
+              
+              return (
+                <g key={index}>
+                  {/* Línea superior e inferior (mechas) */}
+                  <line
+                    x1={x}
+                    x2={x}
+                    y1={highY}
+                    y2={lowY}
+                    stroke={isGreen ? '#10B981' : '#EF4444'}
                     strokeWidth="1"
                   />
-                )}
-              </g>
-            )
-          })}
-        </svg>
-        
-        {/* Etiquetas de precio */}
-        <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-400 -ml-16">
-          <span>{maxPrice.toFixed(4)}</span>
-          <span>{((maxPrice + minPrice) / 2).toFixed(4)}</span>
-          <span>{minPrice.toFixed(4)}</span>
+                  
+                  {/* Cuerpo de la vela */}
+                  <rect
+                    x={x - candleWidth/2}
+                    y={bodyTop}
+                    width={candleWidth}
+                    height={bodyHeight}
+                    fill={isGreen ? '#10B981' : '#EF4444'}
+                    stroke={isGreen ? '#10B981' : '#EF4444'}
+                    strokeWidth="1"
+                    opacity="0.9"
+                  />
+                  
+                  {/* Puntos de entrada */}
+                  {candle.isEntry && (
+                    <circle
+                      cx={x}
+                      cy={closeY - 15}
+                      r="5"
+                      fill={candle.entryType === 'win' ? '#10B981' : '#EF4444'}
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                      opacity="0.9"
+                    />
+                  )}
+                  
+                  {/* Patrones detectados */}
+                  {candle.isPatternStart && (
+                    <polygon
+                      points={`${x},${closeY - 25} ${x-4},${closeY - 15} ${x+4},${closeY - 15}`}
+                      fill="#F59E0B"
+                      stroke="#ffffff"
+                      strokeWidth="1"
+                    />
+                  )}
+                </g>
+              )
+            })}
+          </svg>
+          
+          {/* Etiquetas de precio en el eje Y */}
+          <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-300 -ml-20 py-2">
+            <span className="bg-gray-800 px-2 py-1 rounded">{maxPrice.toFixed(4)}</span>
+            <span className="bg-gray-800 px-2 py-1 rounded">{((maxPrice + minPrice) / 2).toFixed(4)}</span>
+            <span className="bg-gray-800 px-2 py-1 rounded">{minPrice.toFixed(4)}</span>
+          </div>
+          
+          {/* Timeline en la parte inferior */}
+          <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 -mb-6">
+            {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
+              <span key={index} className="bg-gray-800 px-2 py-1 rounded">
+                {candle.date} {candle.time}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -404,7 +456,7 @@ export default function StrategyDetail() {
             </div>
           </div>
           
-          <div className="h-80 mb-4">
+          <div className="h-96 mb-6">
             <CandlestickChart data={priceData} />
           </div>
           
