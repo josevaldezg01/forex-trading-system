@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Activity, Clock, Target, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Activity, Clock, Target } from 'lucide-react'
 
 // Configuración Supabase
 const supabase = createClient(

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Clock, Target, BarChart3 } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Target, BarChart3 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 
 // Configuración Supabase
@@ -52,14 +52,7 @@ export default function StrategyDetail() {
   const [loading, setLoading] = useState(true)
   const [selectedTimeRange, setSelectedTimeRange] = useState('1M') // 1 mes por defecto
 
-  useEffect(() => {
-    if (strategyId) {
-      fetchStrategyDetail()
-      generateMockCandleData()
-    }
-  }, [strategyId])
-
-  const fetchStrategyDetail = async () => {
+  const fetchStrategyDetail = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('forex_strategies')
@@ -78,14 +71,20 @@ export default function StrategyDetail() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [strategyId])
+
+  useEffect(() => {
+    if (strategyId) {
+      fetchStrategyDetail()
+      generateMockCandleData()
+    }
+  }, [strategyId, fetchStrategyDetail])
 
   // Generar datos simulados de velas para demostración
   const generateMockCandleData = () => {
     const data: CandleData[] = []
     const basePrice = 1.0850 // EUR/USD ejemplo
     let currentPrice = basePrice
-    const timeframes = { '1m': 1, '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240 }
     
     // Generar 100 velas de ejemplo
     for (let i = 0; i < 100; i++) {
@@ -305,7 +304,7 @@ export default function StrategyDetail() {
                     const candle = candleData[value as number]
                     return candle ? `${candle.date} ${candle.time}` : ''
                   }}
-                  formatter={(value: any) => [value.toFixed(5), 'Precio']}
+                  formatter={(value: number) => [value.toFixed(5), 'Precio']}
                 />
                 <Line 
                   type="monotone" 
