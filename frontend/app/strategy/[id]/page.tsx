@@ -51,6 +51,7 @@ export default function StrategyDetail() {
   const [candleData, setCandleData] = useState<CandleData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTimeRange, setSelectedTimeRange] = useState('1M') // 1 mes por defecto
+  const [selectedCandleSize, setSelectedCandleSize] = useState('15m') // 15 minutos por defecto
 
   const fetchStrategyDetail = useCallback(async () => {
     try {
@@ -81,9 +82,9 @@ export default function StrategyDetail() {
   }, [strategyId, fetchStrategyDetail])
 
   useEffect(() => {
-    // Regenerar datos cuando cambia el rango de tiempo
+    // Regenerar datos cuando cambia el rango de tiempo o tamaño de vela
     generateMockCandleData()
-  }, [selectedTimeRange])
+  }, [selectedTimeRange, selectedCandleSize])
 
   // Generar datos simulados de velas para demostración
   const generateMockCandleData = useCallback(() => {
@@ -91,48 +92,73 @@ export default function StrategyDetail() {
     const basePrice = 1.0850 // EUR/USD ejemplo
     let currentPrice = basePrice
     
-    // Determinar cantidad de velas según el rango seleccionado
-    const candleCount = {
-      '1W': 672,    // 7 días * 4 velas por hora (15m)
-      '1M': 2880,   // 30 días * 4 velas por hora
-      '3M': 8640,   // 90 días * 4 velas por hora
-      '6M': 17280,  // 180 días * 4 velas por hora
-      '1Y': 35040   // 365 días * 4 velas por hora
+    // Configuración de períodos
+    const candleSizeMinutes = {
+      '1m': 1,
+      '5m': 5,
+      '15m': 15,
+      '30m': 30,
+      '1h': 60,
+      '4h': 240
     }
     
-    const totalCandles = candleCount[selectedTimeRange as keyof typeof candleCount] || 2880
-    const hoursBetween = selectedTimeRange === '1W' ? 0.25 : selectedTimeRange === '1M' ? 0.25 : 0.25 // 15 minutos
+    const timeRangeDays = {
+      '1W': 7,
+      '1M': 30,
+      '3M': 90,
+      '6M': 180,
+      '1Y': 365
+    }
+    
+    const candleMinutes = candleSizeMinutes[selectedCandleSize as keyof typeof candleSizeMinutes] || 15
+    const rangeDays = timeRangeDays[selectedTimeRange as keyof typeof timeRangeDays] || 30
+    
+    // Calcular número de velas total
+    const totalMinutes = rangeDays * 24 * 60
+    const totalCandles = Math.floor(totalMinutes / candleMinutes)
+    
+    // Validación: no permitir velas más grandes que el rango
+    const maxCandleSize = rangeDays >= 365 ? 240 : rangeDays >= 90 ? 60 : rangeDays >= 30 ? 30 : rangeDays >= 7 ? 15 : 5
+    const actualCandleMinutes = Math.min(candleMinutes, maxCandleSize)
     
     // Generar velas con patrones más realistas
-    for (let i = 0; i < totalCandles; i++) {
-      const date = new Date(Date.now() - (totalCandles - i) * hoursBetween * 60 * 60 * 1000)
+    for (let i = 0; i < Math.min(totalCandles, 5000); i++) { // Límite de 5000 velas para rendimiento
+      const date = new Date(Date.now() - (totalCandles - i) * actualCandleMinutes * 60 * 1000)
       
-      // Crear movimientos más naturales con ciclos
-      const dailyCycle = Math.sin((i / (24 * 4)) * 2 * Math.PI) * 0.003 // Ciclo diario
-      const weeklyCycle = Math.sin((i / (24 * 7 * 4)) * 2 * Math.PI) * 0.008 // Ciclo semanal
-      const randomNoise = (Math.random() - 0.5) * 0.004 // Ruido aleatorio
-      const trend = Math.sin(i / 1000) * 0.02 // Tendencia a largo plazo
+      // Crear movimientos más naturales basados en el timeframe
+      const timeframeFactor = actualCandleMinutes / 15 // Factor basado en 15m como referencia
+      const volatilityBase = 0.002 * Math.sqrt(timeframeFactor) // Más volatilidad en timeframes mayores
+      
+      // Ciclos naturales escalados por timeframe
+      const dailyCycle = Math.sin((i * actualCandleMinutes / (24 * 60)) * 2 * Math.PI) * 0.003 * timeframeFactor
+      const weeklyCycle = Math.sin((i * actualCandleMinutes / (24 * 60 * 7)) * 2 * Math.PI) * 0.008 * timeframeFactor
+      const randomNoise = (Math.random() - 0.5) * volatilityBase
+      const trend = Math.sin(i / (1000 / timeframeFactor)) * 0.02 // Tendencia ajustada
       
       const movement = dailyCycle + weeklyCycle + randomNoise + trend
       
       const open = currentPrice
-      const volatility = 0.002 + Math.abs(Math.sin(i / 200)) * 0.003 // Volatilidad variable
+      const volatility = volatilityBase + Math.abs(Math.sin(i / 200)) * volatilityBase
       
       // Crear precio de cierre más natural
       const close = open + movement + (Math.random() - 0.5) * volatility
       
-      // High y Low más realistas
+      // High y Low más realistas basados en timeframe
       const bodyRange = Math.abs(close - open)
-      const wickMultiplier = 0.5 + Math.random() * 1.5
+      const wickMultiplier = 0.3 + Math.random() * (1.2 * timeframeFactor)
       
       const high = Math.max(open, close) + (bodyRange * wickMultiplier + Math.random() * volatility * 0.5)
       const low = Math.min(open, close) - (bodyRange * wickMultiplier + Math.random() * volatility * 0.5)
       
       const isGreen = close > open
       
-      // Simular entradas de trading más espaciadas y realistas
-      const shouldHaveEntry = Math.random() < 0.02 && i > 50 // Solo 2% probabilidad
-      const entrySuccess = Math.random() < (strategy?.effectiveness || 95) / 100 // Usar efectividad real
+      // Simular entradas de trading ajustadas por timeframe
+      const entryProbability = 0.01 / timeframeFactor // Menos entradas en timeframes mayores
+      const shouldHaveEntry = Math.random() < entryProbability && i > 50
+      const entrySuccess = Math.random() < (strategy?.effectiveness || 95) / 100
+      
+      // Patrones ajustados por timeframe
+      const patternProbability = 0.02 / timeframeFactor
       
       data.push({
         date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
@@ -142,7 +168,7 @@ export default function StrategyDetail() {
         low: parseFloat(low.toFixed(5)),
         close: parseFloat(close.toFixed(5)),
         color: isGreen ? 'green' : 'red',
-        isPatternStart: i > 10 && Math.random() < 0.03, // 3% chance patrón detectado
+        isPatternStart: i > 10 && Math.random() < patternProbability,
         isEntry: shouldHaveEntry,
         entryType: shouldHaveEntry ? (entrySuccess ? 'win' : 'loss') : undefined
       })
@@ -151,7 +177,7 @@ export default function StrategyDetail() {
     }
     
     setCandleData(data)
-  }, [selectedTimeRange, strategy?.effectiveness])
+  }, [selectedTimeRange, selectedCandleSize, strategy?.effectiveness])
 
   const getDirectionIcon = (direction: string) => {
     return direction === 'CALL' ? 
@@ -416,30 +442,74 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Filtros de tiempo */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Filtros de tiempo y tamaño de vela */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 gap-4">
           <h2 className="text-2xl font-bold">Análisis Histórico de Velas</h2>
-          <div className="flex space-x-2">
-            {['1W', '1M', '3M', '6M', '1Y'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setSelectedTimeRange(range)}
-                className={`px-4 py-2 rounded-lg transition-all ${
-                  selectedTimeRange === range
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Selector de rango de tiempo */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-400 font-medium">Rango de Tiempo:</label>
+              <div className="flex space-x-2">
+                {['1W', '1M', '3M', '6M', '1Y'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setSelectedTimeRange(range)}
+                    className={`px-3 py-2 rounded-lg transition-all text-sm ${
+                      selectedTimeRange === range
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Selector de tamaño de vela */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-400 font-medium">Período de Vela:</label>
+              <div className="flex space-x-2">
+                {['1m', '5m', '15m', '30m', '1h', '4h'].map((size) => {
+                  // Validación: no permitir velas más grandes que el rango seleccionado
+                  const rangeDays = {'1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365}[selectedTimeRange] || 30
+                  const sizeMinutes = {'1m': 1, '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240}[size] || 15
+                  const maxAllowed = rangeDays >= 365 ? 240 : rangeDays >= 90 ? 60 : rangeDays >= 30 ? 30 : rangeDays >= 7 ? 15 : 5
+                  const isDisabled = sizeMinutes > maxAllowed
+                  
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => !isDisabled && setSelectedCandleSize(size)}
+                      disabled={isDisabled}
+                      className={`px-3 py-2 rounded-lg transition-all text-sm ${
+                        selectedCandleSize === size
+                          ? 'bg-blue-600 text-white'
+                          : isDisabled 
+                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                            : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                      }`}
+                      title={isDisabled ? `${size} no disponible para rango ${selectedTimeRange}` : `Velas de ${size}`}
+                    >
+                      {size}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Gráfico de velas japonesas */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold">Gráfico de Velas Japonesas - {strategy.pair}</h3>
+            <div>
+              <h3 className="text-xl font-bold">Gráfico de Velas Japonesas - {strategy.pair}</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                Velas de {selectedCandleSize} • Rango: {selectedTimeRange} • {candleData.length} velas generadas
+              </p>
+            </div>
             <div className="flex items-center space-x-4 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
