@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Activity, Clock, Target, AlertTriangle } from 'lucide-react'
 
@@ -27,6 +28,7 @@ interface Strategy {
 }
 
 export default function TradingDashboard() {
+  const router = useRouter()
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
   const [showAllStrategies, setShowAllStrategies] = useState(false)
@@ -125,28 +127,28 @@ export default function TradingDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-6">
-  <div className="text-right">
-    <p className="text-sm text-gray-400">Última Actualización</p>
-    <p className="text-lg text-blue-400">
-      {strategies.length > 0
-        ? new Date(Math.max(...strategies.map(s => new Date(s.analysis_date).getTime()))).toLocaleString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          })
-        : 'Cargando...'
-      }
-    </p>
-  </div>
-  <div className="text-right">
-    <p className="text-sm text-gray-400">Total Estrategias</p>
-    <p className="text-2xl font-bold text-green-400">{totalStrategies}</p>
-  </div>
-  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-</div>
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Última Actualización</p>
+                <p className="text-lg text-blue-400">
+                  {strategies.length > 0
+                    ? new Date(Math.max(...strategies.map(s => new Date(s.analysis_date).getTime()))).toLocaleString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      })
+                    : 'Cargando...'
+                  }
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Total Estrategias</p>
+                <p className="text-2xl font-bold text-green-400">{totalStrategies}</p>
+              </div>
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -208,7 +210,8 @@ export default function TradingDashboard() {
               return (
                 <div
                   key={strategy.id}
-                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 hover:border-gray-500 transition-all"
+                  onClick={() => router.push(`/strategy/${strategy.id}`)}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 hover:border-gray-500 hover:bg-white/15 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -304,7 +307,11 @@ export default function TradingDashboard() {
                     {filteredStrategies.map((strategy) => {
                       const status = getStrategyStatus(strategy.effectiveness, strategy.score)
                       return (
-                        <tr key={strategy.id} className="hover:bg-white/5">
+                        <tr
+                          key={strategy.id}
+                          onClick={() => router.push(`/strategy/${strategy.id}`)}
+                          className="hover:bg-white/5 cursor-pointer"
+                        >
                           <td className="px-4 py-3 font-medium">{strategy.pair}</td>
                           <td className="px-4 py-3">
                             <span className="bg-blue-600 px-2 py-1 rounded text-xs">
