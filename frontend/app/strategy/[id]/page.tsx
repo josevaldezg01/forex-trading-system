@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Target, BarChart3 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot, ComposedChart, Bar } from 'recharts'
 
 // Configuración Supabase
 const supabase = createClient(
@@ -80,28 +80,46 @@ export default function StrategyDetail() {
     }
   }, [strategyId, fetchStrategyDetail])
 
+  useEffect(() => {
+    // Regenerar datos cuando cambia el rango de tiempo
+    generateMockCandleData()
+  }, [selectedTimeRange])
+
   // Generar datos simulados de velas para demostración
-  const generateMockCandleData = () => {
+  const generateMockCandleData = useCallback(() => {
     const data: CandleData[] = []
     const basePrice = 1.0850 // EUR/USD ejemplo
     let currentPrice = basePrice
     
-    // Generar 100 velas de ejemplo
-    for (let i = 0; i < 100; i++) {
-      const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000) // Cada hora hacia atrás
+    // Determinar cantidad de velas según el rango seleccionado
+    const candleCount = {
+      '1W': 168,   // 7 días * 24 horas
+      '1M': 720,   // 30 días * 24 horas  
+      '3M': 2160,  // 90 días * 24 horas
+      '6M': 4320,  // 180 días * 24 horas
+      '1Y': 8760   // 365 días * 24 horas
+    }
+    
+    const totalCandles = candleCount[selectedTimeRange as keyof typeof candleCount] || 720
+    
+    // Generar velas
+    for (let i = 0; i < totalCandles; i++) {
+      const date = new Date(Date.now() - (totalCandles - i) * 60 * 60 * 1000) // Cada hora hacia atrás
       
-      // Simulación de precio OHLC
+      // Simulación de precio OHLC más realista
       const open = currentPrice
-      const volatility = 0.001 // 0.1% volatilidad
-      const change = (Math.random() - 0.5) * volatility
-      const high = open + Math.abs(change) + Math.random() * volatility * 0.5
-      const low = open - Math.abs(change) - Math.random() * volatility * 0.5
+      const volatility = 0.0015 // Aumentar volatilidad para más realismo
+      const trend = Math.sin(i / 100) * 0.0005 // Tendencia suave
+      const change = (Math.random() - 0.5) * volatility + trend
+      
+      const high = open + Math.abs(change) + Math.random() * volatility * 0.3
+      const low = open - Math.abs(change) - Math.random() * volatility * 0.3
       const close = open + change
       
       const isGreen = close > open
       
-      // Simular entradas de trading cada 8-12 velas
-      const shouldHaveEntry = Math.random() < 0.1 && i > 5
+      // Simular entradas de trading cada 15-25 velas (más esparcidas)
+      const shouldHaveEntry = Math.random() < 0.05 && i > 10
       const entrySuccess = Math.random() < 0.95 // 95% éxito como en los datos
       
       data.push({
@@ -112,7 +130,7 @@ export default function StrategyDetail() {
         low: parseFloat(low.toFixed(5)),
         close: parseFloat(close.toFixed(5)),
         color: isGreen ? 'green' : 'red',
-        isPatternStart: i > 0 && Math.random() < 0.15, // 15% chance patrón detectado
+        isPatternStart: i > 0 && Math.random() < 0.08, // 8% chance patrón detectado
         isEntry: shouldHaveEntry,
         entryType: shouldHaveEntry ? (entrySuccess ? 'win' : 'loss') : undefined
       })
@@ -121,7 +139,7 @@ export default function StrategyDetail() {
     }
     
     setCandleData(data)
-  }
+  }, [selectedTimeRange])
 
   const getDirectionIcon = (direction: string) => {
     return direction === 'CALL' ? 
@@ -136,10 +154,119 @@ export default function StrategyDetail() {
     return 'text-red-500'
   }
 
-  // Datos para el gráfico de línea de precios
+  // Componente personalizado para renderizar velas japonesas
+  const CandlestickChart = ({ data }: { data: typeof priceData }) => {
+    const maxPrice = Math.max(...data.map(d => Math.max(d.high || d.price, d.price)))
+    const minPrice = Math.min(...data.map(d => Math.min(d.low || d.price, d.price)))
+    const priceRange = maxPrice - minPrice
+    const chartHeight = 300
+    
+    return (
+      <div className="relative w-full" style={{ height: chartHeight + 'px' }}>
+        <svg width="100%" height={chartHeight} className="overflow-visible">
+          {/* Grid lines */}
+          {[0.25, 0.5, 0.75].map((ratio, i) => (
+            <line
+              key={i}
+              x1="0"
+              x2="100%"
+              y1={chartHeight * ratio}
+              y2={chartHeight * ratio}
+              stroke="#374151"
+              strokeDasharray="3 3"
+              strokeWidth="1"
+            />
+          ))}
+          
+          {/* Render candles */}
+          {data.slice(-50).map((candle, index) => { // Mostrar últimas 50 velas
+            const x = (index / 49) * 100 // Porcentaje de ancho
+            const candleWidth = 1.8 // Ancho de vela en %
+            
+            const open = candle.open || candle.price
+            const high = candle.high || candle.price
+            const low = candle.low || candle.price
+            const close = candle.close || candle.price
+            
+            // Normalizar precios a coordenadas Y
+            const openY = chartHeight - ((open - minPrice) / priceRange) * chartHeight
+            const highY = chartHeight - ((high - minPrice) / priceRange) * chartHeight
+            const lowY = chartHeight - ((low - minPrice) / priceRange) * chartHeight
+            const closeY = chartHeight - ((close - minPrice) / priceRange) * chartHeight
+            
+            const isGreen = close > open
+            const bodyTop = Math.min(openY, closeY)
+            const bodyHeight = Math.abs(closeY - openY)
+            
+            return (
+              <g key={index}>
+                {/* Línea superior e inferior */}
+                <line
+                  x1={`${x}%`}
+                  x2={`${x}%`}
+                  y1={highY}
+                  y2={lowY}
+                  stroke={isGreen ? '#10B981' : '#EF4444'}
+                  strokeWidth="1"
+                />
+                
+                {/* Cuerpo de la vela */}
+                <rect
+                  x={`${x - candleWidth/2}%`}
+                  y={bodyTop}
+                  width={`${candleWidth}%`}
+                  height={bodyHeight || 1}
+                  fill={isGreen ? '#10B981' : '#EF4444'}
+                  stroke={isGreen ? '#10B981' : '#EF4444'}
+                  strokeWidth="1"
+                />
+                
+                {/* Puntos de entrada */}
+                {candle.isEntry && (
+                  <circle
+                    cx={`${x}%`}
+                    cy={closeY - 10}
+                    r="4"
+                    fill={candle.entryType === 'win' ? '#10B981' : '#EF4444'}
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                  />
+                )}
+                
+                {/* Patrones detectados */}
+                {candle.isPatternStart && (
+                  <circle
+                    cx={`${x}%`}
+                    cy={closeY - 20}
+                    r="3"
+                    fill="#F59E0B"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                  />
+                )}
+              </g>
+            )
+          })}
+        </svg>
+        
+        {/* Etiquetas de precio */}
+        <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-400 -ml-16">
+          <span>{maxPrice.toFixed(4)}</span>
+          <span>{((maxPrice + minPrice) / 2).toFixed(4)}</span>
+          <span>{minPrice.toFixed(4)}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Datos para el gráfico de línea de precios (datos originales extendidos)
   const priceData = candleData.map((candle, index) => ({
     index,
     price: candle.close,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
     date: candle.date,
     time: candle.time,
     isEntry: candle.isEntry,
@@ -257,10 +384,10 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Gráfico de precios con entradas */}
+        {/* Gráfico de velas japonesas */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold">Línea de Precios y Entradas de Trading</h3>
+            <h3 className="text-xl font-bold">Gráfico de Velas Japonesas - {strategy.pair}</h3>
             <div className="flex items-center space-x-4 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -274,6 +401,27 @@ export default function StrategyDetail() {
                 <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <span>Patrón Detectado</span>
               </div>
+            </div>
+          </div>
+          
+          <div className="h-80 mb-4">
+            <CandlestickChart data={priceData} />
+          </div>
+          
+          {/* Timeline inferior */}
+          <div className="flex justify-between text-xs text-gray-400 mt-2">
+            {priceData.slice(-50).filter((_, i) => i % 10 === 0).map((candle, index) => (
+              <span key={index}>{candle.date} {candle.time}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Gráfico de línea adicional para contexto */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold">Línea de Precios y Contexto Histórico</h3>
+            <div className="text-sm text-gray-400">
+              Rango: {selectedTimeRange} • Mostrando {priceData.length} velas
             </div>
           </div>
           
