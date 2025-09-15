@@ -1,103 +1,334 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Activity, Clock, Target, AlertTriangle } from 'lucide-react'
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+// Configuración Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+interface Strategy {
+  id: number
+  pair: string
+  timeframe: string
+  pattern: string
+  direction: string
+  effectiveness: number
+  occurrences: number
+  wins: number
+  losses: number
+  avg_profit: number
+  score: number
+  analysis_date: string
+  type?: string
+}
+
+export default function TradingDashboard() {
+  const [strategies, setStrategies] = useState<Strategy[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAllStrategies, setShowAllStrategies] = useState(false)
+  const [selectedTimeframe, setSelectedTimeframe] = useState('all')
+  const [totalStrategies, setTotalStrategies] = useState(0)
+
+  useEffect(() => {
+    fetchStrategies()
+  }, [])
+
+  const fetchStrategies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('forex_strategies')
+        .select('*')
+        .order('effectiveness', { ascending: false })
+        .order('score', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching strategies:', error)
+        return
+      }
+
+      setStrategies(data || [])
+      setTotalStrategies(data?.length || 0)
+    } catch (error) {
+      console.error('Error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filtrar estrategias por timeframe
+  const filteredStrategies = selectedTimeframe === 'all'
+    ? strategies
+    : strategies.filter(s => s.timeframe === selectedTimeframe)
+
+  // Top 5 estrategias más rentables
+  const topStrategies = filteredStrategies.slice(0, 5)
+
+  // Agrupar estrategias por timeframe para estadísticas
+  const timeframeStats = strategies.reduce((acc, strategy) => {
+    const tf = strategy.timeframe
+    if (!acc[tf]) {
+      acc[tf] = { count: 0, avgEffectiveness: 0, totalEffectiveness: 0 }
+    }
+    acc[tf].count++
+    acc[tf].totalEffectiveness += strategy.effectiveness
+    acc[tf].avgEffectiveness = acc[tf].totalEffectiveness / acc[tf].count
+    return acc
+  }, {} as Record<string, { count: number; avgEffectiveness: number; totalEffectiveness: number }>)
+
+  const getEffectivenessColor = (effectiveness: number) => {
+    if (effectiveness >= 90) return 'text-green-600 bg-green-100'
+    if (effectiveness >= 80) return 'text-green-500 bg-green-50'
+    if (effectiveness >= 70) return 'text-yellow-600 bg-yellow-100'
+    return 'text-red-500 bg-red-50'
+  }
+
+  const getDirectionIcon = (direction: string) => {
+    return direction === 'CALL' ?
+      <TrendingUp className="w-4 h-4 text-green-600" /> :
+      <TrendingDown className="w-4 h-4 text-red-600" />
+  }
+
+  const getStrategyStatus = (effectiveness: number, score: number) => {
+    if (effectiveness >= 85 && score >= 65) return { status: 'Excelente', color: 'text-green-700 bg-green-100' }
+    if (effectiveness >= 75 && score >= 60) return { status: 'Buena', color: 'text-blue-700 bg-blue-100' }
+    if (effectiveness >= 65 && score >= 55) return { status: 'Regular', color: 'text-yellow-700 bg-yellow-100' }
+    return { status: 'Revisar', color: 'text-red-700 bg-red-100' }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white text-lg">Cargando estrategias de trading...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      {/* Header */}
+      <div className="border-b border-gray-700 bg-black/20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white">
+                Sistema de Trading Automatizado
+              </h1>
+              <p className="text-gray-300 mt-1">
+                Análisis de patrones y estrategias de Forex
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Total Estrategias</p>
+                <p className="text-2xl font-bold text-green-400">{totalStrategies}</p>
+              </div>
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Estadísticas por Timeframe */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+          {Object.entries(timeframeStats).map(([timeframe, stats]) => (
+            <div
+              key={timeframe}
+              className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                selectedTimeframe === timeframe
+                  ? 'bg-purple-600/30 border-purple-400'
+                  : 'bg-white/5 border-gray-600 hover:bg-white/10'
+              }`}
+              onClick={() => setSelectedTimeframe(selectedTimeframe === timeframe ? 'all' : timeframe)}
+            >
+              <div className="text-center">
+                <Clock className="w-6 h-6 mx-auto mb-2 text-blue-400" />
+                <p className="text-lg font-bold">{timeframe}</p>
+                <p className="text-sm text-gray-400">{stats.count} estrategias</p>
+                <p className="text-xs text-green-400">
+                  {stats.avgEffectiveness.toFixed(1)}% avg
+                </p>
+              </div>
+            </div>
+          ))}
+          <div
+            className={`p-4 rounded-lg border transition-all cursor-pointer ${
+              selectedTimeframe === 'all'
+                ? 'bg-purple-600/30 border-purple-400'
+                : 'bg-white/5 border-gray-600 hover:bg-white/10'
+            }`}
+            onClick={() => setSelectedTimeframe('all')}
+          >
+            <div className="text-center">
+              <Activity className="w-6 h-6 mx-auto mb-2 text-green-400" />
+              <p className="text-lg font-bold">TODAS</p>
+              <p className="text-sm text-gray-400">{totalStrategies} total</p>
+            </div>
+          </div>
+        </div>
+
+        {/* TOP 5 Estrategias */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold flex items-center">
+              <Target className="w-6 h-6 mr-2 text-yellow-400" />
+              TOP 5 Estrategias Más Rentables
+              {selectedTimeframe !== 'all' && (
+                <span className="ml-2 text-lg text-blue-400">({selectedTimeframe})</span>
+              )}
+            </h2>
+          </div>
+
+          <div className="grid gap-4">
+            {topStrategies.map((strategy, index) => {
+              const status = getStrategyStatus(strategy.effectiveness, strategy.score)
+              return (
+                <div
+                  key={strategy.id}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 hover:border-gray-500 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-black font-bold text-lg">
+                        #{index + 1}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-xl font-bold">{strategy.pair}</h3>
+                          <span className="text-sm bg-blue-600 px-2 py-1 rounded">
+                            {strategy.timeframe}
+                          </span>
+                          {getDirectionIcon(strategy.direction)}
+                        </div>
+                        <p className="text-gray-300">
+                          Patrón: <span className="text-blue-400 font-mono">{strategy.pattern}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-6">
+                      <div className="text-center">
+                        <p className="text-sm text-gray-400">Efectividad</p>
+                        <p className={`text-2xl font-bold ${getEffectivenessColor(strategy.effectiveness).split(' ')[0]}`}>
+                          {strategy.effectiveness.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-400">Score</p>
+                        <p className="text-xl font-bold text-blue-400">
+                          {strategy.score.toFixed(1)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-400">Operaciones</p>
+                        <p className="text-lg">
+                          <span className="text-green-400">{strategy.wins}</span> /
+                          <span className="text-red-400">{strategy.losses}</span>
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${status.color}`}>
+                          {status.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Botón para mostrar todas las estrategias */}
+        <div className="text-center">
+          <button
+            onClick={() => setShowAllStrategies(!showAllStrategies)}
+            className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-medium transition-all flex items-center mx-auto space-x-2"
+          >
+            {showAllStrategies ? (
+              <>
+                <ChevronUp className="w-5 h-5" />
+                <span>Ocultar Estrategias Completas</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-5 h-5" />
+                <span>Ver Todas las Estrategias ({filteredStrategies.length})</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Tabla completa de estrategias (colapsible) */}
+        {showAllStrategies && (
+          <div className="mt-8">
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-gray-600 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-black/20">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Par</th>
+                      <th className="px-4 py-3 text-left">Timeframe</th>
+                      <th className="px-4 py-3 text-left">Patrón</th>
+                      <th className="px-4 py-3 text-left">Dirección</th>
+                      <th className="px-4 py-3 text-right">Efectividad</th>
+                      <th className="px-4 py-3 text-right">Score</th>
+                      <th className="px-4 py-3 text-right">Wins/Losses</th>
+                      <th className="px-4 py-3 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {filteredStrategies.map((strategy) => {
+                      const status = getStrategyStatus(strategy.effectiveness, strategy.score)
+                      return (
+                        <tr key={strategy.id} className="hover:bg-white/5">
+                          <td className="px-4 py-3 font-medium">{strategy.pair}</td>
+                          <td className="px-4 py-3">
+                            <span className="bg-blue-600 px-2 py-1 rounded text-xs">
+                              {strategy.timeframe}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-blue-400">{strategy.pattern}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center space-x-1">
+                              {getDirectionIcon(strategy.direction)}
+                              <span>{strategy.direction}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-bold ${getEffectivenessColor(strategy.effectiveness).split(' ')[0]}`}>
+                              {strategy.effectiveness.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium">
+                            {strategy.score.toFixed(1)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="text-green-400">{strategy.wins}</span> /
+                            <span className="text-red-400">{strategy.losses}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${status.color}`}>
+                              {status.status}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
-  );
+  )
 }
