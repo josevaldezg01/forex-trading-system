@@ -52,6 +52,7 @@ export default function StrategyDetail() {
   const [loading, setLoading] = useState(true)
   const [selectedTimeRange, setSelectedTimeRange] = useState('1M') // 1 mes por defecto
   const [selectedCandleSize, setSelectedCandleSize] = useState('1h') // 1 hora por defecto
+  const [hoveredCandle, setHoveredCandle] = useState<{candle: CandleData, x: number, y: number} | null>(null)
 
   const fetchStrategyDetail = useCallback(async () => {
     try {
@@ -221,7 +222,7 @@ export default function StrategyDetail() {
     return 'text-red-500'
   }
 
-  // Componente personalizado para renderizar velas japonesas
+  // Componente personalizado para renderizar velas japonesas con tooltip
   const CandlestickChart = ({ data }: { data: typeof priceData }) => {
     // Determinar cuántas velas mostrar según el rango
     const candlesToShow = {
@@ -243,10 +244,44 @@ export default function StrategyDetail() {
     const chartHeight = 400
     const chartWidth = Math.max(displayData.length * 8, 1000) // Mínimo 8px por vela
     
+    const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+      
+      // Calcular qué vela está bajo el cursor
+      const candleIndex = Math.floor(x / 8)
+      
+      if (candleIndex >= 0 && candleIndex < displayData.length) {
+        const candle = displayData[candleIndex]
+        const candleData = candleData.find(c => 
+          c.date === candle.date && c.time === candle.time
+        )
+        
+        if (candleData) {
+          setHoveredCandle({
+            candle: candleData,
+            x: event.clientX,
+            y: event.clientY
+          })
+        }
+      }
+    }
+    
+    const handleMouseLeave = () => {
+      setHoveredCandle(null)
+    }
+    
     return (
       <div className="relative w-full overflow-x-auto bg-gray-900 rounded-lg">
         <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
-          <svg width={chartWidth} height={chartHeight} className="overflow-visible">
+          <svg 
+            width={chartWidth} 
+            height={chartHeight} 
+            className="overflow-visible cursor-crosshair"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
             {/* Grid lines horizontales */}
             {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
               <line
@@ -297,6 +332,16 @@ export default function StrategyDetail() {
               
               return (
                 <g key={index}>
+                  {/* Área invisible para mejorar detección de hover */}
+                  <rect
+                    x={x - 4}
+                    y={0}
+                    width={8}
+                    height={chartHeight}
+                    fill="transparent"
+                    className="hover:fill-white hover:fill-opacity-5"
+                  />
+                  
                   {/* Línea superior e inferior (mechas) */}
                   <line
                     x1={x}
@@ -362,6 +407,50 @@ export default function StrategyDetail() {
             ))}
           </div>
         </div>
+        
+        {/* Tooltip flotante */}
+        {hoveredCandle && (
+          <div 
+            className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
+            style={{ 
+              left: hoveredCandle.x + 10,
+              top: hoveredCandle.y - 10,
+              transform: hoveredCandle.x > window.innerWidth - 250 ? 'translateX(-100%)' : 'none'
+            }}
+          >
+            <div className="text-xs space-y-1">
+              <div className="text-white font-semibold border-b border-gray-600 pb-1">
+                {hoveredCandle.candle.date} {hoveredCandle.candle.time}
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 text-gray-300">
+                <div>Open:</div>
+                <div className="text-white">{hoveredCandle.candle.open}</div>
+                <div>High:</div>
+                <div className="text-green-400">{hoveredCandle.candle.high}</div>
+                <div>Low:</div>
+                <div className="text-red-400">{hoveredCandle.candle.low}</div>
+                <div>Close:</div>
+                <div className={hoveredCandle.candle.close > hoveredCandle.candle.open ? 'text-green-400' : 'text-red-400'}>
+                  {hoveredCandle.candle.close}
+                </div>
+              </div>
+              {hoveredCandle.candle.isEntry && (
+                <div className="border-t border-gray-600 pt-1 mt-1">
+                  <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                    Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+                  </div>
+                </div>
+              )}
+              {hoveredCandle.candle.isPatternStart && (
+                <div className="border-t border-gray-600 pt-1 mt-1">
+                  <div className="text-xs font-medium text-yellow-400">
+                    Patrón detectado: {strategy?.pattern}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
