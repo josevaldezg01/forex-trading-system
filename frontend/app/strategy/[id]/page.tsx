@@ -77,9 +77,9 @@ export default function StrategyDetail() {
   useEffect(() => {
     if (strategyId) {
       fetchStrategyDetail()
-      generateMockCandleData()
+      fetchRealCandleData()
     }
-  }, [strategyId, fetchStrategyDetail])
+  }, [strategyId, fetchStrategyDetail, fetchRealCandleData])
 
   useEffect(() => {
     // Cargar datos reales cuando cambia el rango de tiempo o tamaño de vela
