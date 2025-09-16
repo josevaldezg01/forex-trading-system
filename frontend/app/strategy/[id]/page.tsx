@@ -77,14 +77,13 @@ export default function StrategyDetail() {
   useEffect(() => {
     if (strategyId) {
       fetchStrategyDetail()
-      fetchRealCandleData()
     }
-  }, [strategyId, fetchStrategyDetail, fetchRealCandleData])
+  }, [strategyId, fetchStrategyDetail])
 
   useEffect(() => {
     // Cargar datos reales cuando cambia el rango de tiempo o tamaño de vela
     fetchRealCandleData()
-  }, [selectedTimeRange, selectedCandleSize, strategy])
+  }, [selectedTimeRange, selectedCandleSize, strategy, fetchRealCandleData])
 
   // Cargar datos reales de Supabase
   const fetchRealCandleData = useCallback(async () => {
