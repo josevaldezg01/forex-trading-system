@@ -254,13 +254,13 @@ export default function StrategyDetail() {
       
       if (candleIndex >= 0 && candleIndex < displayData.length) {
         const candle = displayData[candleIndex]
-        const candleData = candleData.find(c => 
+        const foundCandle = candleData.find(c => 
           c.date === candle.date && c.time === candle.time
         )
         
-        if (candleData) {
+        if (foundCandle) {
           setHoveredCandle({
-            candle: candleData,
+            candle: foundCandle,
             x: event.clientX,
             y: event.clientY
           })
