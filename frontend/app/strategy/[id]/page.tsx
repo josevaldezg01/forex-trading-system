@@ -74,17 +74,6 @@ export default function StrategyDetail() {
     }
   }, [strategyId])
 
-  useEffect(() => {
-    if (strategyId) {
-      fetchStrategyDetail()
-    }
-  }, [strategyId, fetchStrategyDetail])
-
-  useEffect(() => {
-    // Cargar datos reales cuando cambia el rango de tiempo o tamaño de vela
-    fetchRealCandleData()
-  }, [selectedTimeRange, selectedCandleSize, strategy, fetchRealCandleData])
-
   // Cargar datos reales de Supabase
   const fetchRealCandleData = useCallback(async () => {
     if (!strategy) return
@@ -207,6 +196,17 @@ export default function StrategyDetail() {
     setCandleData(data)
     console.log('Usando datos simulados como fallback')
   }
+
+  useEffect(() => {
+    if (strategyId) {
+      fetchStrategyDetail()
+    }
+  }, [strategyId, fetchStrategyDetail])
+
+  useEffect(() => {
+    // Cargar datos reales cuando cambia el rango de tiempo o tamaño de vela
+    fetchRealCandleData()
+  }, [selectedTimeRange, selectedCandleSize, strategy, fetchRealCandleData])
 
   const getDirectionIcon = (direction: string) => {
     return direction === 'CALL' ? 
