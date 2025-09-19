@@ -40,7 +40,6 @@ interface CandleData {
   isPatternStart?: boolean
   isEntry?: boolean
   entryType?: 'win' | 'loss'
-  // Nuevos campos para detección de patrones
   isPatternCandle?: boolean
   patternPosition?: number
   patternType?: string
@@ -79,6 +78,41 @@ export default function StrategyDetail() {
       setLoading(false)
     }
   }, [strategyId])
+
+  // Datos simulados como fallback
+  const generateFallbackData = useCallback(() => {
+    const data: CandleData[] = []
+    const basePrice = 1.0850
+    let currentPrice = basePrice
+    
+    for (let i = 0; i < 100; i++) {
+      const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000)
+      const open = currentPrice
+      const change = (Math.random() - 0.5) * 0.004
+      const close = open + change
+      const high = Math.max(open, close) + Math.random() * 0.002
+      const low = Math.min(open, close) - Math.random() * 0.002
+      
+      data.push({
+        date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        open: parseFloat(open.toFixed(5)),
+        high: parseFloat(high.toFixed(5)),
+        low: parseFloat(low.toFixed(5)),
+        close: parseFloat(close.toFixed(5)),
+        color: close > open ? 'green' : 'red',
+        isPatternStart: Math.random() < 0.05,
+        isEntry: Math.random() < 0.02,
+        entryType: Math.random() < 0.95 ? 'win' : 'loss'
+      })
+      
+      currentPrice = close
+    }
+    
+    const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
+    setCandleData(candlesWithPatterns)
+    console.log('Usando datos simulados como fallback')
+  }, [strategy])
 
   // Función para detectar patrones automáticamente
   const detectPatterns = useCallback((candles: CandleData[], strategy: Strategy) => {
@@ -200,42 +234,7 @@ export default function StrategyDetail() {
     } finally {
       setLoading(false)
     }
-  }, [strategy, selectedTimeRange, selectedCandleSize, detectPatterns])
-
-  // Datos simulados como fallback
-  const generateFallbackData = () => {
-    const data: CandleData[] = []
-    const basePrice = 1.0850
-    let currentPrice = basePrice
-    
-    for (let i = 0; i < 100; i++) {
-      const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000)
-      const open = currentPrice
-      const change = (Math.random() - 0.5) * 0.004
-      const close = open + change
-      const high = Math.max(open, close) + Math.random() * 0.002
-      const low = Math.min(open, close) - Math.random() * 0.002
-      
-      data.push({
-        date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-        time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        open: parseFloat(open.toFixed(5)),
-        high: parseFloat(high.toFixed(5)),
-        low: parseFloat(low.toFixed(5)),
-        close: parseFloat(close.toFixed(5)),
-        color: close > open ? 'green' : 'red',
-        isPatternStart: Math.random() < 0.05,
-        isEntry: Math.random() < 0.02,
-        entryType: Math.random() < 0.95 ? 'win' : 'loss'
-      })
-      
-      currentPrice = close
-    }
-    
-    const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
-    setCandleData(candlesWithPatterns)
-    console.log('Usando datos simulados como fallback')
-  }
+  }, [strategy, selectedTimeRange, selectedCandleSize, detectPatterns, generateFallbackData])
 
   useEffect(() => {
     if (strategyId) {
@@ -245,7 +244,7 @@ export default function StrategyDetail() {
 
   useEffect(() => {
     fetchRealCandleData()
-  }, [selectedTimeRange, selectedCandleSize, strategy, fetchRealCandleData])
+  }, [fetchRealCandleData])
 
   const getDirectionIcon = (direction: string) => {
     return direction === 'CALL' ? 
@@ -284,7 +283,6 @@ export default function StrategyDetail() {
     const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
       const rect = event.currentTarget.getBoundingClientRect()
       const x = event.clientX - rect.left
-      const y = event.clientY - rect.top
       
       const candleIndex = Math.floor(x / 8)
       
@@ -307,8 +305,7 @@ export default function StrategyDetail() {
     const handleMouseLeave = () => {
       setHoveredCandle(null)
     }
-    
-    return (
+return (
       <div className="relative w-full overflow-x-auto bg-gray-900 rounded-lg">
         <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
           <svg 
@@ -684,7 +681,7 @@ export default function StrategyDetail() {
             </div>
           </div>
           <div className="mt-3 text-sm text-gray-400">
-            <strong>Estrategia:</strong> Detectar patrón "{strategy.pattern}" → Entrada {strategy.direction} en la siguiente vela
+            <strong>Estrategia:</strong> Detectar patrón &ldquo;{strategy.pattern}&rdquo; → Entrada {strategy.direction} en la siguiente vela
           </div>
         </div>
 
@@ -848,7 +845,7 @@ export default function StrategyDetail() {
               }
               {candleData.filter(candle => candle.isEntry).length === 0 && (
                 <div className="text-center text-gray-400 py-4">
-                  No se encontraron entradas para el patrón "{strategy.pattern}"
+                  No se encontraron entradas para el patrón &ldquo;{strategy.pattern}&rdquo;
                 </div>
               )}
             </div>
@@ -949,8 +946,7 @@ export default function StrategyDetail() {
               Últimas 20 velas con indicadores de patrones y entradas
             </p>
           </div>
-          
-          <div className="overflow-x-auto">
+<div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-black/20">
                 <tr>
