@@ -40,6 +40,11 @@ interface CandleData {
   isPatternStart?: boolean
   isEntry?: boolean
   entryType?: 'win' | 'loss'
+  // Nuevos campos para detección de patrones
+  isPatternCandle?: boolean
+  patternPosition?: number
+  patternType?: string
+  entryDirection?: string
 }
 
 export default function StrategyDetail() {
@@ -74,6 +79,56 @@ export default function StrategyDetail() {
       setLoading(false)
     }
   }, [strategyId])
+
+  // Función para detectar patrones automáticamente
+  const detectPatterns = useCallback((candles: CandleData[], strategy: Strategy) => {
+    if (!strategy || !candles.length) return candles
+
+    const candlesWithPatterns = [...candles]
+    const pattern = strategy.pattern || 'RRR'
+    const direction = strategy.direction || 'CALL'
+    
+    // Convertir velas a secuencia R/V
+    const sequence = candles.map(candle => 
+      candle.close >= candle.open ? 'V' : 'R'
+    )
+    
+    // Buscar coincidencias del patrón
+    for (let i = 0; i <= sequence.length - pattern.length - 1; i++) {
+      const currentSequence = sequence.slice(i, i + pattern.length).join('')
+      
+      if (currentSequence === pattern) {
+        // Marcar las velas del patrón
+        for (let j = 0; j < pattern.length; j++) {
+          candlesWithPatterns[i + j] = {
+            ...candlesWithPatterns[i + j],
+            isPatternCandle: true,
+            patternPosition: j,
+            patternType: pattern[j],
+            isPatternStart: j === 0 // Mantener compatibilidad
+          }
+        }
+        
+        // Marcar la vela de entrada (siguiente al patrón)
+        const entryIndex = i + pattern.length
+        if (entryIndex < candlesWithPatterns.length) {
+          const entryCandle = candlesWithPatterns[entryIndex]
+          const isEntryCorrect = direction === 'CALL' 
+            ? entryCandle.close >= entryCandle.open 
+            : entryCandle.close < entryCandle.open
+          
+          candlesWithPatterns[entryIndex] = {
+            ...entryCandle,
+            isEntry: true,
+            entryType: isEntryCorrect ? 'win' : 'loss',
+            entryDirection: direction
+          }
+        }
+      }
+    }
+    
+    return candlesWithPatterns
+  }, [])
 
   // Cargar datos reales de Supabase
   const fetchRealCandleData = useCallback(async () => {
@@ -127,16 +182,9 @@ export default function StrategyDetail() {
       }
       
       // Convertir datos reales al formato esperado
-      const realCandles: CandleData[] = data.map((candle, index) => {
+      const realCandles: CandleData[] = data.map((candle) => {
         const candleDate = new Date(candle.datetime)
         const isGreen = candle.close > candle.open
-        
-        // Simular entradas de trading basadas en la estrategia real
-        const shouldHaveEntry = Math.random() < 0.03 // 3% probabilidad
-        const entrySuccess = Math.random() < (strategy.effectiveness / 100)
-        
-        // Simular detección de patrones
-        const isPatternMatch = Math.random() < 0.04 // 4% probabilidad
         
         return {
           date: candleDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
@@ -145,15 +193,15 @@ export default function StrategyDetail() {
           high: parseFloat(candle.high.toFixed(5)),
           low: parseFloat(candle.low.toFixed(5)),
           close: parseFloat(candle.close.toFixed(5)),
-          color: isGreen ? 'green' : 'red',
-          isPatternStart: isPatternMatch,
-          isEntry: shouldHaveEntry,
-          entryType: shouldHaveEntry ? (entrySuccess ? 'win' : 'loss') : undefined
+          color: isGreen ? 'green' : 'red'
         }
       })
       
-      setCandleData(realCandles)
-      console.log(`Cargados ${realCandles.length} datos reales para ${pair} ${actualTimeframe}`)
+      // Aplicar detección de patrones automática
+      const candlesWithPatterns = detectPatterns(realCandles, strategy)
+      
+      setCandleData(candlesWithPatterns)
+      console.log(`Cargados ${candlesWithPatterns.length} datos reales para ${pair} ${actualTimeframe}`)
       
     } catch (error) {
       console.error('Error fetching real data:', error)
@@ -161,7 +209,7 @@ export default function StrategyDetail() {
     } finally {
       setLoading(false)
     }
-  }, [strategy, selectedTimeRange, selectedCandleSize])
+  }, [strategy, selectedTimeRange, selectedCandleSize, detectPatterns])
 
   // Datos simulados como fallback si no hay datos reales
   const generateFallbackData = () => {
@@ -194,7 +242,9 @@ export default function StrategyDetail() {
       currentPrice = close
     }
     
-    setCandleData(data)
+    // Aplicar detección de patrones también al fallback
+    const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
+    setCandleData(candlesWithPatterns)
     console.log('Usando datos simulados como fallback')
   }
 
@@ -364,8 +414,68 @@ export default function StrategyDetail() {
                     opacity="0.9"
                   />
                   
-                  {/* Puntos de entrada */}
+                  {/* NUEVO: Marcadores del patrón debajo de las velas */}
+                  {candle.isPatternCandle && (
+                    <g>
+                      <circle
+                        cx={x}
+                        cy={chartHeight - 25}
+                        r="6"
+                        fill="#fbbf24"
+                        stroke="#f59e0b"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={x}
+                        y={chartHeight - 21}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fill="#000"
+                        className="font-bold"
+                      >
+                        {candle.patternType}
+                      </text>
+                    </g>
+                  )}
+                  
+                  {/* NUEVO: Marcador de entrada arriba de la vela */}
                   {candle.isEntry && (
+                    <g>
+                      {/* Triángulo de entrada */}
+                      <polygon
+                        points={`${x-8},30 ${x+8},30 ${x},15`}
+                        fill={candle.entryType === 'win' ? '#10b981' : '#ef4444'}
+                        stroke={candle.entryType === 'win' ? '#059669' : '#dc2626'}
+                        strokeWidth="2"
+                      />
+                      
+                      {/* Texto del resultado */}
+                      <text
+                        x={x}
+                        y={10}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fill={candle.entryType === 'win' ? '#10b981' : '#ef4444'}
+                        className="font-bold"
+                      >
+                        {candle.entryType === 'win' ? 'GANADA' : 'PERDIDA'}
+                      </text>
+                      
+                      {/* Dirección de la entrada */}
+                      <text
+                        x={x}
+                        y={45}
+                        textAnchor="middle"
+                        fontSize="8"
+                        fill="#9ca3af"
+                      >
+                        {candle.entryDirection}
+                      </text>
+                    </g>
+                  )}
+                  
+                  {/* Mantener puntos de entrada originales (compatibilidad) */}
+                  {candle.isEntry && !candle.entryDirection && (
                     <circle
                       cx={x}
                       cy={closeY - 15}
@@ -377,8 +487,8 @@ export default function StrategyDetail() {
                     />
                   )}
                   
-                  {/* Patrones detectados */}
-                  {candle.isPatternStart && (
+                  {/* Patrones detectados (mantener compatibilidad) */}
+                  {candle.isPatternStart && !candle.isPatternCandle && (
                     <polygon
                       points={`${x},${closeY - 25} ${x-4},${closeY - 15} ${x+4},${closeY - 15}`}
                       fill="#F59E0B"
@@ -408,7 +518,7 @@ export default function StrategyDetail() {
           </div>
         </div>
         
-        {/* Tooltip flotante */}
+        {/* Tooltip flotante MEJORADO */}
         {hoveredCandle && (
           <div 
             className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
@@ -434,14 +544,35 @@ export default function StrategyDetail() {
                   {hoveredCandle.candle.close}
                 </div>
               </div>
+              
+              {/* NUEVO: Info de patrón */}
+              {hoveredCandle.candle.isPatternCandle && (
+                <div className="border-t border-gray-600 pt-1 mt-1">
+                  <div className="text-xs font-medium text-yellow-400">
+                    Patrón: {hoveredCandle.candle.patternType} (Pos. {(hoveredCandle.candle.patternPosition || 0) + 1})
+                  </div>
+                </div>
+              )}
+              
+              {/* NUEVO: Info de entrada mejorada */}
               {hoveredCandle.candle.isEntry && (
+                <div className="border-t border-gray-600 pt-1 mt-1">
+                  <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                    Entrada {hoveredCandle.candle.entryDirection || 'DESCONOCIDA'}: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+                  </div>
+                </div>
+              )}
+              
+              {/* Mantener info original para compatibilidad */}
+              {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
                 <div className="border-t border-gray-600 pt-1 mt-1">
                   <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
                     Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
                   </div>
                 </div>
               )}
-              {hoveredCandle.candle.isPatternStart && (
+              
+              {hoveredCandle.candle.isPatternStart && !hoveredCandle.candle.isPatternCandle && (
                 <div className="border-t border-gray-600 pt-1 mt-1">
                   <div className="text-xs font-medium text-yellow-400">
                     Patrón detectado: {strategy?.pattern}
@@ -467,7 +598,8 @@ export default function StrategyDetail() {
     time: candle.time,
     isEntry: candle.isEntry,
     entryType: candle.entryType,
-    isPatternStart: candle.isPatternStart
+    isPatternStart: candle.isPatternStart,
+    isPatternCandle: candle.isPatternCandle
   }))
 
   if (loading || !strategy) {
@@ -506,43 +638,7 @@ export default function StrategyDetail() {
                   </span>
                   {getDirectionIcon(strategy.direction)}
                 </div>
-                <p className="text-gray-300 mt-1">
-                  Patrón: <span className="text-blue-400 font-mono">{strategy.pattern}</span> → {strategy.direction}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-6">
-              <div className="text-center">
-                <p className="text-sm text-gray-400">Efectividad</p>
-                <p className={`text-2xl font-bold ${getEffectivenessColor(strategy.effectiveness)}`}>
-                  {strategy.effectiveness.toFixed(1)}%
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-400">Score</p>
-                <p className="text-xl font-bold text-blue-400">
-                  {strategy.score.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Estadísticas de la estrategia */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
-            <Target className="w-8 h-8 text-green-400 mb-2" />
-            <p className="text-2xl font-bold text-green-400">{strategy.wins}</p>
-            <p className="text-gray-400">Operaciones Ganadoras</p>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
-            <Target className="w-8 h-8 text-red-400 mb-2" />
-            <p className="text-2xl font-bold text-red-400">{strategy.losses}</p>
-            <p className="text-gray-400">Operaciones Perdedoras</p>
+                <p className="text-gray-400">Operaciones Perdedoras</p>
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
@@ -557,6 +653,28 @@ export default function StrategyDetail() {
               {strategy.avg_profit.toFixed(3)}
             </p>
             <p className="text-gray-400">Ganancia Promedio</p>
+          </div>
+        </div>
+
+        {/* NUEVA: Leyenda del Gráfico */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-gray-600 mb-8">
+          <h3 className="text-lg font-bold mb-3">Leyenda del Análisis de Patrones</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-yellow-600"></div>
+              <span className="text-sm">Velas del patrón <span className="font-mono bg-gray-700 px-2 py-1 rounded">{strategy.pattern}</span></span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-b-[12px] border-l-transparent border-r-transparent border-b-green-500"></div>
+              <span className="text-sm text-green-400">Entrada ganadora</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-b-[12px] border-l-transparent border-r-transparent border-b-red-500"></div>
+              <span className="text-sm text-red-400">Entrada perdedora</span>
+            </div>
+          </div>
+          <div className="mt-3 text-sm text-gray-400">
+            <strong>Estrategia:</strong> Detectar patrón "{strategy.pattern}" → Entrada {strategy.direction} en la siguiente vela
           </div>
         </div>
 
@@ -650,6 +768,90 @@ export default function StrategyDetail() {
           </div>
         </div>
 
+        {/* NUEVA: Estadísticas de patrones detectados */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Resumen de patrones */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <h3 className="text-lg font-bold mb-4">Análisis de Patrones</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span>Patrones detectados:</span>
+                <span className="font-bold text-yellow-400">
+                  {candleData.filter(c => c.isPatternCandle && c.patternPosition === 0).length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Entradas ejecutadas:</span>
+                <span className="font-bold">{candleData.filter(c => c.isEntry).length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-green-400">Entradas ganadoras:</span>
+                <span className="font-bold text-green-400">
+                  {candleData.filter(c => c.isEntry && c.entryType === 'win').length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-red-400">Entradas perdedoras:</span>
+                <span className="font-bold text-red-400">
+                  {candleData.filter(c => c.isEntry && c.entryType === 'loss').length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-400">Tasa de éxito:</span>
+                <span className="font-bold text-blue-400">
+                  {candleData.filter(c => c.isEntry).length > 0 
+                    ? ((candleData.filter(c => c.isEntry && c.entryType === 'win').length / candleData.filter(c => c.isEntry).length) * 100).toFixed(1) 
+                    : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline de entradas */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <h3 className="text-lg font-bold mb-4">Últimas Entradas</h3>
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {candleData
+                .filter(candle => candle.isEntry)
+                .slice(-10)
+                .reverse()
+                .map((candle, index) => (
+                  <div 
+                    key={index}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      candle.entryType === 'win' 
+                        ? 'bg-green-500/10 border-green-500/30' 
+                        : 'bg-red-500/10 border-red-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        candle.entryType === 'win' ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                      <div>
+                        <div className="font-medium">{candle.date} {candle.time}</div>
+                        <div className="text-sm text-gray-400">
+                          Precio: {candle.close.toFixed(5)} • {candle.entryDirection}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`font-bold ${
+                      candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {candle.entryType === 'win' ? '✓' : '✗'}
+                    </div>
+                  </div>
+                ))
+              }
+              {candleData.filter(candle => candle.isEntry).length === 0 && (
+                <div className="text-center text-gray-400 py-4">
+                  No se encontraron entradas para el patrón "{strategy.pattern}"
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Gráfico de línea adicional para contexto */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -723,7 +925,7 @@ export default function StrategyDetail() {
                 ))}
                 
                 {/* Puntos de patrones detectados */}
-                {priceData.filter(d => d.isPatternStart).map((pattern, index) => (
+                {priceData.filter(d => d.isPatternStart || d.isPatternCandle).map((pattern, index) => (
                   <ReferenceDot 
                     key={`pattern-${index}`}
                     x={pattern.index} 
@@ -739,7 +941,7 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Tabla de velas detallada */}
+        {/* Tabla de velas detallada MEJORADA */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-gray-600 overflow-hidden">
           <div className="p-6 border-b border-gray-600">
             <h3 className="text-xl font-bold">Historial Detallado de Velas</h3>
@@ -764,7 +966,14 @@ export default function StrategyDetail() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {candleData.slice(-20).reverse().map((candle, index) => (
-                  <tr key={index} className="hover:bg-white/5">
+                  <tr 
+                    key={index} 
+                    className={`hover:bg-white/5 ${
+                      candle.isEntry ? (candle.entryType === 'win' ? 'bg-green-500/5' : 'bg-red-500/5') : ''
+                    } ${
+                      candle.isPatternCandle ? 'bg-yellow-500/5' : ''
+                    }`}
+                  >
                     <td className="px-4 py-3">
                       <div>
                         <p className="font-medium">{candle.date}</p>
@@ -781,7 +990,12 @@ export default function StrategyDetail() {
                       }`}></div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {candle.isPatternStart && (
+                      {candle.isPatternCandle && (
+                        <span className="bg-yellow-500 text-black px-2 py-1 rounded text-xs font-medium">
+                          {candle.patternType} ({(candle.patternPosition || 0) + 1})
+                        </span>
+                      )}
+                      {candle.isPatternStart && !candle.isPatternCandle && (
                         <span className="bg-yellow-500 text-black px-2 py-1 rounded text-xs font-medium">
                           {strategy.pattern}
                         </span>
@@ -794,7 +1008,7 @@ export default function StrategyDetail() {
                             ? 'bg-green-600 text-white' 
                             : 'bg-red-600 text-white'
                         }`}>
-                          {candle.entryType === 'win' ? 'WIN' : 'LOSS'}
+                          {candle.entryDirection} {candle.entryType === 'win' ? 'WIN' : 'LOSS'}
                         </span>
                       )}
                     </td>
@@ -807,4 +1021,40 @@ export default function StrategyDetail() {
       </div>
     </div>
   )
-}
+}="text-gray-300 mt-1">
+                  Patrón: <span className="text-blue-400 font-mono">{strategy.pattern}</span> → {strategy.direction}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-6">
+              <div className="text-center">
+                <p className="text-sm text-gray-400">Efectividad</p>
+                <p className={`text-2xl font-bold ${getEffectivenessColor(strategy.effectiveness)}`}>
+                  {strategy.effectiveness.toFixed(1)}%
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-400">Score</p>
+                <p className="text-xl font-bold text-blue-400">
+                  {strategy.score.toFixed(1)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Estadísticas de la estrategia */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <Target className="w-8 h-8 text-green-400 mb-2" />
+            <p className="text-2xl font-bold text-green-400">{strategy.wins}</p>
+            <p className="text-gray-400">Operaciones Ganadoras</p>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <Target className="w-8 h-8 text-red-400 mb-2" />
+            <p className="text-2xl font-bold text-red-400">{strategy.losses}</p>
+            <p className
