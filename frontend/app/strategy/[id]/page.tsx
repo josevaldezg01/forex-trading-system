@@ -557,21 +557,24 @@ return (
     )
   }
 
-  // Datos para el gráfico
-  const priceData = candleData.map((candle, index) => ({
-    index,
-    price: candle.close,
-    open: candle.open,
-    high: candle.high,
-    low: candle.low,
-    close: candle.close,
-    date: candle.date,
-    time: candle.time,
-    isEntry: candle.isEntry,
-    entryType: candle.entryType,
-    isPatternStart: candle.isPatternStart,
-    isPatternCandle: candle.isPatternCandle
-  }))
+ // Datos para el gráfico
+const priceData = candleData.map((candle, index) => ({
+  index,
+  price: candle.close,
+  open: candle.open,
+  high: candle.high,
+  low: candle.low,
+  close: candle.close,
+  date: candle.date,
+  time: candle.time,
+  isEntry: candle.isEntry,
+  entryType: candle.entryType,
+  isPatternStart: candle.isPatternStart,
+  isPatternCandle: candle.isPatternCandle,
+  patternType: candle.patternType,
+  patternPosition: candle.patternPosition,
+  entryDirection: candle.entryDirection
+}))
 
   if (loading || !strategy) {
     return (
