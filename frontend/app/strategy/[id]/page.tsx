@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Target, BarChart3 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot, ComposedChart, Bar } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 
 // Configuración Supabase
 const supabase = createClient(
@@ -55,8 +55,8 @@ export default function StrategyDetail() {
   const [strategy, setStrategy] = useState<Strategy | null>(null)
   const [candleData, setCandleData] = useState<CandleData[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTimeRange, setSelectedTimeRange] = useState('1M') // 1 mes por defecto
-  const [selectedCandleSize, setSelectedCandleSize] = useState('1h') // 1 hora por defecto
+  const [selectedTimeRange, setSelectedTimeRange] = useState('1M')
+  const [selectedCandleSize, setSelectedCandleSize] = useState('1h')
   const [hoveredCandle, setHoveredCandle] = useState<{candle: CandleData, x: number, y: number} | null>(null)
 
   const fetchStrategyDetail = useCallback(async () => {
@@ -105,7 +105,7 @@ export default function StrategyDetail() {
             isPatternCandle: true,
             patternPosition: j,
             patternType: pattern[j],
-            isPatternStart: j === 0 // Mantener compatibilidad
+            isPatternStart: j === 0
           }
         }
         
@@ -137,14 +137,10 @@ export default function StrategyDetail() {
     try {
       setLoading(true)
       
-      // Obtener par sin el slash (EUR/USD -> EURUSD)
       const pair = strategy.pair.replace('/', '')
-      
-      // Solo permitir timeframes que existen en los datos reales
       const availableTimeframes = ['1h', '1d']
       const actualTimeframe = availableTimeframes.includes(selectedCandleSize) ? selectedCandleSize : '1h'
       
-      // Calcular rango de fechas
       const endDate = new Date()
       const startDate = new Date()
       
@@ -157,7 +153,6 @@ export default function StrategyDetail() {
         default: startDate.setMonth(endDate.getMonth() - 1)
       }
       
-      // Consultar datos reales de Supabase
       const { data, error } = await supabase
         .from('forex_candles')
         .select('*')
@@ -166,11 +161,10 @@ export default function StrategyDetail() {
         .gte('datetime', startDate.toISOString())
         .lte('datetime', endDate.toISOString())
         .order('datetime', { ascending: true })
-        .limit(2000) // Limitar para rendimiento
+        .limit(2000)
       
       if (error) {
         console.error('Error fetching candle data:', error)
-        // Si hay error, usar datos simulados como fallback
         generateFallbackData()
         return
       }
@@ -181,7 +175,6 @@ export default function StrategyDetail() {
         return
       }
       
-      // Convertir datos reales al formato esperado
       const realCandles: CandleData[] = data.map((candle) => {
         const candleDate = new Date(candle.datetime)
         const isGreen = candle.close > candle.open
@@ -197,9 +190,7 @@ export default function StrategyDetail() {
         }
       })
       
-      // Aplicar detección de patrones automática
       const candlesWithPatterns = detectPatterns(realCandles, strategy)
-      
       setCandleData(candlesWithPatterns)
       console.log(`Cargados ${candlesWithPatterns.length} datos reales para ${pair} ${actualTimeframe}`)
       
@@ -211,13 +202,12 @@ export default function StrategyDetail() {
     }
   }, [strategy, selectedTimeRange, selectedCandleSize, detectPatterns])
 
-  // Datos simulados como fallback si no hay datos reales
+  // Datos simulados como fallback
   const generateFallbackData = () => {
     const data: CandleData[] = []
     const basePrice = 1.0850
     let currentPrice = basePrice
     
-    // Generar 100 velas simuladas como fallback
     for (let i = 0; i < 100; i++) {
       const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000)
       const open = currentPrice
@@ -242,7 +232,6 @@ export default function StrategyDetail() {
       currentPrice = close
     }
     
-    // Aplicar detección de patrones también al fallback
     const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
     setCandleData(candlesWithPatterns)
     console.log('Usando datos simulados como fallback')
@@ -255,7 +244,6 @@ export default function StrategyDetail() {
   }, [strategyId, fetchStrategyDetail])
 
   useEffect(() => {
-    // Cargar datos reales cuando cambia el rango de tiempo o tamaño de vela
     fetchRealCandleData()
   }, [selectedTimeRange, selectedCandleSize, strategy, fetchRealCandleData])
 
@@ -272,19 +260,18 @@ export default function StrategyDetail() {
     return 'text-red-500'
   }
 
-  // Componente personalizado para renderizar velas japonesas con tooltip
+  // Componente de gráfico de velas
   const CandlestickChart = ({ data }: { data: typeof priceData }) => {
-    // Determinar cuántas velas mostrar según el rango
     const candlesToShow = {
-      '1W': 200,   // 200 velas para 1 semana
-      '1M': 400,   // 400 velas para 1 mes
-      '3M': 600,   // 600 velas para 3 meses
-      '6M': 800,   // 800 velas para 6 meses
-      '1Y': 1000   // 1000 velas para 1 año
+      '1W': 200,
+      '1M': 400,
+      '3M': 600,
+      '6M': 800,
+      '1Y': 1000
     }
     
     const maxCandles = candlesToShow[selectedTimeRange as keyof typeof candlesToShow] || 400
-    const displayData = data.slice(-maxCandles) // Mostrar las más recientes
+    const displayData = data.slice(-maxCandles)
     
     if (displayData.length === 0) return <div>No hay datos disponibles</div>
     
@@ -292,14 +279,13 @@ export default function StrategyDetail() {
     const minPrice = Math.min(...displayData.map(d => d.low || d.price))
     const priceRange = maxPrice - minPrice || 0.001
     const chartHeight = 400
-    const chartWidth = Math.max(displayData.length * 8, 1000) // Mínimo 8px por vela
+    const chartWidth = Math.max(displayData.length * 8, 1000)
     
     const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
       const rect = event.currentTarget.getBoundingClientRect()
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
       
-      // Calcular qué vela está bajo el cursor
       const candleIndex = Math.floor(x / 8)
       
       if (candleIndex >= 0 && candleIndex < displayData.length) {
@@ -332,7 +318,7 @@ export default function StrategyDetail() {
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Grid lines horizontales */}
+            {/* Grid lines */}
             {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
               <line
                 key={i}
@@ -346,7 +332,6 @@ export default function StrategyDetail() {
               />
             ))}
             
-            {/* Grid lines verticales */}
             {Array.from({ length: Math.floor(displayData.length / 20) }, (_, i) => i * 20).map((index) => (
               <line
                 key={index}
@@ -362,15 +347,14 @@ export default function StrategyDetail() {
             
             {/* Render candles */}
             {displayData.map((candle, index) => {
-              const x = index * 8 + 4 // 8px de espacio por vela
-              const candleWidth = 6 // Ancho fijo en pixels
+              const x = index * 8 + 4
+              const candleWidth = 6
               
               const open = candle.open || candle.price
               const high = candle.high || candle.price
               const low = candle.low || candle.price
               const close = candle.close || candle.price
               
-              // Normalizar precios a coordenadas Y
               const openY = chartHeight - ((open - minPrice) / priceRange) * chartHeight
               const highY = chartHeight - ((high - minPrice) / priceRange) * chartHeight
               const lowY = chartHeight - ((low - minPrice) / priceRange) * chartHeight
@@ -378,11 +362,10 @@ export default function StrategyDetail() {
               
               const isGreen = close > open
               const bodyTop = Math.min(openY, closeY)
-              const bodyHeight = Math.max(Math.abs(closeY - openY), 1) // Mínimo 1px de altura
+              const bodyHeight = Math.max(Math.abs(closeY - openY), 1)
               
               return (
                 <g key={index}>
-                  {/* Área invisible para mejorar detección de hover */}
                   <rect
                     x={x - 4}
                     y={0}
@@ -392,7 +375,6 @@ export default function StrategyDetail() {
                     className="hover:fill-white hover:fill-opacity-5"
                   />
                   
-                  {/* Línea superior e inferior (mechas) */}
                   <line
                     x1={x}
                     x2={x}
@@ -402,7 +384,6 @@ export default function StrategyDetail() {
                     strokeWidth="1"
                   />
                   
-                  {/* Cuerpo de la vela */}
                   <rect
                     x={x - candleWidth/2}
                     y={bodyTop}
@@ -414,7 +395,7 @@ export default function StrategyDetail() {
                     opacity="0.9"
                   />
                   
-                  {/* NUEVO: Marcadores del patrón debajo de las velas */}
+                  {/* Marcadores del patrón debajo */}
                   {candle.isPatternCandle && (
                     <g>
                       <circle
@@ -438,10 +419,9 @@ export default function StrategyDetail() {
                     </g>
                   )}
                   
-                  {/* NUEVO: Marcador de entrada arriba de la vela */}
+                  {/* Marcador de entrada arriba */}
                   {candle.isEntry && (
                     <g>
-                      {/* Triángulo de entrada */}
                       <polygon
                         points={`${x-8},30 ${x+8},30 ${x},15`}
                         fill={candle.entryType === 'win' ? '#10b981' : '#ef4444'}
@@ -449,7 +429,6 @@ export default function StrategyDetail() {
                         strokeWidth="2"
                       />
                       
-                      {/* Texto del resultado */}
                       <text
                         x={x}
                         y={10}
@@ -461,7 +440,6 @@ export default function StrategyDetail() {
                         {candle.entryType === 'win' ? 'GANADA' : 'PERDIDA'}
                       </text>
                       
-                      {/* Dirección de la entrada */}
                       <text
                         x={x}
                         y={45}
@@ -474,7 +452,7 @@ export default function StrategyDetail() {
                     </g>
                   )}
                   
-                  {/* Mantener puntos de entrada originales (compatibilidad) */}
+                  {/* Compatibilidad con marcadores originales */}
                   {candle.isEntry && !candle.entryDirection && (
                     <circle
                       cx={x}
@@ -487,7 +465,6 @@ export default function StrategyDetail() {
                     />
                   )}
                   
-                  {/* Patrones detectados (mantener compatibilidad) */}
                   {candle.isPatternStart && !candle.isPatternCandle && (
                     <polygon
                       points={`${x},${closeY - 25} ${x-4},${closeY - 15} ${x+4},${closeY - 15}`}
@@ -501,14 +478,14 @@ export default function StrategyDetail() {
             })}
           </svg>
           
-          {/* Etiquetas de precio en el eje Y */}
+          {/* Etiquetas de precio */}
           <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-300 -ml-20 py-2">
             <span className="bg-gray-800 px-2 py-1 rounded">{maxPrice.toFixed(4)}</span>
             <span className="bg-gray-800 px-2 py-1 rounded">{((maxPrice + minPrice) / 2).toFixed(4)}</span>
             <span className="bg-gray-800 px-2 py-1 rounded">{minPrice.toFixed(4)}</span>
           </div>
           
-          {/* Timeline en la parte inferior */}
+          {/* Timeline */}
           <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 -mb-6">
             {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
               <span key={index} className="bg-gray-800 px-2 py-1 rounded">
@@ -518,7 +495,7 @@ export default function StrategyDetail() {
           </div>
         </div>
         
-        {/* Tooltip flotante MEJORADO */}
+        {/* Tooltip mejorado */}
         {hoveredCandle && (
           <div 
             className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
@@ -545,7 +522,6 @@ export default function StrategyDetail() {
                 </div>
               </div>
               
-              {/* NUEVO: Info de patrón */}
               {hoveredCandle.candle.isPatternCandle && (
                 <div className="border-t border-gray-600 pt-1 mt-1">
                   <div className="text-xs font-medium text-yellow-400">
@@ -554,7 +530,6 @@ export default function StrategyDetail() {
                 </div>
               )}
               
-              {/* NUEVO: Info de entrada mejorada */}
               {hoveredCandle.candle.isEntry && (
                 <div className="border-t border-gray-600 pt-1 mt-1">
                   <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
@@ -563,7 +538,6 @@ export default function StrategyDetail() {
                 </div>
               )}
               
-              {/* Mantener info original para compatibilidad */}
               {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
                 <div className="border-t border-gray-600 pt-1 mt-1">
                   <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
@@ -586,7 +560,7 @@ export default function StrategyDetail() {
     )
   }
 
-  // Datos para el gráfico de línea de precios (datos originales extendidos)
+  // Datos para el gráfico
   const priceData = candleData.map((candle, index) => ({
     index,
     price: candle.close,
@@ -638,7 +612,43 @@ export default function StrategyDetail() {
                   </span>
                   {getDirectionIcon(strategy.direction)}
                 </div>
-                <p className="text-gray-400">Operaciones Perdedoras</p>
+                <p className="text-gray-300 mt-1">
+                  Patrón: <span className="text-blue-400 font-mono">{strategy.pattern}</span> → {strategy.direction}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-6">
+              <div className="text-center">
+                <p className="text-sm text-gray-400">Efectividad</p>
+                <p className={`text-2xl font-bold ${getEffectivenessColor(strategy.effectiveness)}`}>
+                  {strategy.effectiveness.toFixed(1)}%
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-400">Score</p>
+                <p className="text-xl font-bold text-blue-400">
+                  {strategy.score.toFixed(1)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Estadísticas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <Target className="w-8 h-8 text-green-400 mb-2" />
+            <p className="text-2xl font-bold text-green-400">{strategy.wins}</p>
+            <p className="text-gray-400">Operaciones Ganadoras</p>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
+            <Target className="w-8 h-8 text-red-400 mb-2" />
+            <p className="text-2xl font-bold text-red-400">{strategy.losses}</p>
+            <p className="text-gray-400">Operaciones Perdedoras</p>
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
@@ -656,7 +666,7 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* NUEVA: Leyenda del Gráfico */}
+        {/* Leyenda */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-gray-600 mb-8">
           <h3 className="text-lg font-bold mb-3">Leyenda del Análisis de Patrones</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -678,12 +688,11 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Filtros de tiempo y tamaño de vela */}
+        {/* Filtros */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 gap-4">
           <h2 className="text-2xl font-bold">Análisis Histórico de Velas</h2>
           
           <div className="flex flex-col sm:flex-row gap-4">
-            {/* Selector de rango de tiempo */}
             <div className="flex flex-col gap-2">
               <label className="text-sm text-gray-400 font-medium">Rango de Tiempo:</label>
               <div className="flex space-x-2">
@@ -703,26 +712,23 @@ export default function StrategyDetail() {
               </div>
             </div>
             
-            {/* Selector de tamaño de vela */}
             <div className="flex flex-col gap-2">
               <label className="text-sm text-gray-400 font-medium">Período de Vela:</label>
               <div className="flex space-x-2">
-                {['1h', '1d'].map((size) => { // Solo mostrar timeframes disponibles
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedCandleSize(size)}
-                      className={`px-3 py-2 rounded-lg transition-all text-sm ${
-                        selectedCandleSize === size
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                      }`}
-                      title={`Velas de ${size} (datos reales de Yahoo Finance)`}
-                    >
-                      {size}
-                    </button>
-                  )
-                })}
+                {['1h', '1d'].map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedCandleSize(size)}
+                    className={`px-3 py-2 rounded-lg transition-all text-sm ${
+                      selectedCandleSize === size
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                    }`}
+                    title={`Velas de ${size} (datos reales de Yahoo Finance)`}
+                  >
+                    {size}
+                  </button>
+                ))}
                 <div className="flex items-center px-2 text-xs text-green-400">
                   Datos reales
                 </div>
@@ -731,7 +737,7 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Gráfico de velas japonesas */}
+        {/* Gráfico de velas */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -760,7 +766,6 @@ export default function StrategyDetail() {
             <CandlestickChart data={priceData} />
           </div>
           
-          {/* Timeline inferior */}
           <div className="flex justify-between text-xs text-gray-400 mt-2">
             {priceData.slice(-50).filter((_, i) => i % 10 === 0).map((candle, index) => (
               <span key={index}>{candle.date} {candle.time}</span>
@@ -768,9 +773,8 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* NUEVA: Estadísticas de patrones detectados */}
+        {/* Estadísticas de patrones */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Resumen de patrones */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
             <h3 className="text-lg font-bold mb-4">Análisis de Patrones</h3>
             <div className="space-y-3">
@@ -807,7 +811,6 @@ export default function StrategyDetail() {
             </div>
           </div>
 
-          {/* Timeline de entradas */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
             <h3 className="text-lg font-bold mb-4">Últimas Entradas</h3>
             <div className="space-y-3 max-h-60 overflow-y-auto">
@@ -852,7 +855,7 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Gráfico de línea adicional para contexto */}
+        {/* Gráfico de línea */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Línea de Precios y Contexto Histórico</h3>
@@ -898,7 +901,6 @@ export default function StrategyDetail() {
                   dot={false}
                 />
                 
-                {/* Puntos de entrada ganadores */}
                 {priceData.filter(d => d.isEntry && d.entryType === 'win').map((entry, index) => (
                   <ReferenceDot 
                     key={`win-${index}`}
@@ -911,7 +913,6 @@ export default function StrategyDetail() {
                   />
                 ))}
                 
-                {/* Puntos de entrada perdedores */}
                 {priceData.filter(d => d.isEntry && d.entryType === 'loss').map((entry, index) => (
                   <ReferenceDot 
                     key={`loss-${index}`}
@@ -924,7 +925,6 @@ export default function StrategyDetail() {
                   />
                 ))}
                 
-                {/* Puntos de patrones detectados */}
                 {priceData.filter(d => d.isPatternStart || d.isPatternCandle).map((pattern, index) => (
                   <ReferenceDot 
                     key={`pattern-${index}`}
@@ -941,7 +941,7 @@ export default function StrategyDetail() {
           </div>
         </div>
 
-        {/* Tabla de velas detallada MEJORADA */}
+        {/* Tabla detallada */}
         <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-gray-600 overflow-hidden">
           <div className="p-6 border-b border-gray-600">
             <h3 className="text-xl font-bold">Historial Detallado de Velas</h3>
@@ -1021,40 +1021,4 @@ export default function StrategyDetail() {
       </div>
     </div>
   )
-}="text-gray-300 mt-1">
-                  Patrón: <span className="text-blue-400 font-mono">{strategy.pattern}</span> → {strategy.direction}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-6">
-              <div className="text-center">
-                <p className="text-sm text-gray-400">Efectividad</p>
-                <p className={`text-2xl font-bold ${getEffectivenessColor(strategy.effectiveness)}`}>
-                  {strategy.effectiveness.toFixed(1)}%
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-400">Score</p>
-                <p className="text-xl font-bold text-blue-400">
-                  {strategy.score.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Estadísticas de la estrategia */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
-            <Target className="w-8 h-8 text-green-400 mb-2" />
-            <p className="text-2xl font-bold text-green-400">{strategy.wins}</p>
-            <p className="text-gray-400">Operaciones Ganadoras</p>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-gray-600">
-            <Target className="w-8 h-8 text-red-400 mb-2" />
-            <p className="text-2xl font-bold text-red-400">{strategy.losses}</p>
-            <p className
+}
