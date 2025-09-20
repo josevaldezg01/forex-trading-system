@@ -1024,7 +1024,5 @@ const priceData = candleData.map((candle, index) => ({
         </div>
       </div>
     </div>
-   </div>
-  </div>
   )
 }
