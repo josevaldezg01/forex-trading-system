@@ -562,7 +562,7 @@ return (
   </div>
 )
 
- // Datos para el gráfico
+// Datos para el gráfico
 const priceData = candleData.map((candle, index) => ({
   index,
   price: candle.close,
