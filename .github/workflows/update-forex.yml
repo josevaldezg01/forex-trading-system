@@ -9,11 +9,16 @@ jobs:
   update-realtime:
     runs-on: self-hosted
     timeout-minutes: 5
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
+        
+      - name: Install dependencies
+        run: |
+          pip install MetaTrader5 pandas supabase python-dotenv
+        continue-on-error: true
+          
       - name: Update MT5 Data
         env:
           MT5_LOGIN: ${{ secrets.MT5_LOGIN }}
