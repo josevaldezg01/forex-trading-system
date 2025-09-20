@@ -172,7 +172,7 @@ const generateFallbackData = useCallback(() => {
       setLoading(true)
       
       const pair = strategy.pair.replace('/', '')
-      const availableTimeframes = ['1h', '1d']
+      const availableTimeframes = ['1h', '1d', '1w', '1M']
       const actualTimeframe = availableTimeframes.includes(selectedCandleSize) ? selectedCandleSize : '1h'
       
       const endDate = new Date()
@@ -751,20 +751,19 @@ const priceData = candleData.map((candle, index) => ({
             <div className="flex flex-col gap-2">
               <label className="text-sm text-gray-400 font-medium">Período de Vela:</label>
               <div className="flex space-x-2">
-                {['1h', '1d'].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedCandleSize(size)}
-                    className={`px-3 py-2 rounded-lg transition-all text-sm ${
-                      selectedCandleSize === size
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                    }`}
-                    title={`Velas de ${size} (datos reales de Yahoo Finance)`}
-                  >
-                    {size}
-                  </button>
-                ))}
+               {['1h', '1d', '1w', '1M'].map((size) => (
+            <button
+            key={size}
+             onClick={() => setSelectedCandleSize(size)}
+                className={`px-3 py-2 rounded-lg transition-all text-sm ${
+                selectedCandleSize === size
+                ? 'bg-blue-600 text-white'
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                }`}
+            >
+    {size}
+  </button>
+))}
                 <div className="flex items-center px-2 text-xs text-green-400">
                   Datos reales
                 </div>
