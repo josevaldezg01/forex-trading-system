@@ -280,10 +280,10 @@ export default function StrategyDetail() {
     const chartHeight = 400
     const chartWidth = Math.max(displayData.length * 8, 1000)
     
-const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+const handleMouseMove = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
   const rect = event.currentTarget.getBoundingClientRect()
   const x = event.clientX - rect.left
-  const y = event.clientY - rect.top  // Agrega esta línea que faltaba
+  const y = event.clientY - rect.top
 
   const candleIndex = Math.floor(x / 8)
 
@@ -296,21 +296,25 @@ const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     if (foundCandle) {
       setHoveredCandle({
         candle: foundCandle,
-        x: x,  // Usar coordenada relativa, no event.clientX
-        y: y   // Usar coordenada relativa, no event.clientY
+        x: x,
+        y: y
       })
     }
   }
-}
-    
-    const handleMouseLeave = () => {
-      setHoveredCandle(null)
-    }
+}, [displayData, candleData])
+
+const handleMouseLeave = useCallback(() => {
+  setHoveredCandle(null)
+}, [])
 return (
   <div className="relative w-full bg-gray-900 rounded-lg">
     <div
-      className="overflow-x-auto overflow-y-hidden"
-      style={{ height: chartHeight + 60 + 'px' }} // Espacio extra para timeline
+      className="overflow-x-auto overflow-y-hidden scroll-smooth"
+      style={{ height: chartHeight + 60 + 'px' }}
+      onScroll={(e) => {
+        // Prevenir que otros eventos interfieran con el scroll
+        e.stopPropagation()
+      }}
     >
       <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
         <svg
