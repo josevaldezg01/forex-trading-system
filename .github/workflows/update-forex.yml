@@ -3,27 +3,17 @@ name: Update Forex Real Time
 on:
   schedule:
     - cron: '* * * * *'
-    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
   update-realtime:
     runs-on: self-hosted
     timeout-minutes: 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-          
-      - name: Install dependencies
-        run: |
-          pip install MetaTrader5 pandas supabase python-dotenv
-          
+
       - name: Update MT5 Data
         env:
           MT5_LOGIN: ${{ secrets.MT5_LOGIN }}
@@ -32,5 +22,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python scripts/mt5_github_updater.py
+          python backend/mt5_data_downloader.py
         continue-on-error: true
