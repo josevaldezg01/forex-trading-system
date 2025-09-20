@@ -79,6 +79,56 @@ export default function StrategyDetail() {
     }
   }, [strategyId])
 
+  // Función para detectar patrones automáticamente
+  const detectPatterns = useCallback((candles: CandleData[], strategy: Strategy) => {
+    if (!strategy || !candles.length) return candles
+
+    const candlesWithPatterns = [...candles]
+    const pattern = strategy.pattern || 'RRR'
+    const direction = strategy.direction || 'CALL'
+
+    // Convertir velas a secuencia R/V
+    const sequence = candles.map(candle =>
+      candle.close >= candle.open ? 'V' : 'R'
+    )
+
+    // Buscar coincidencias del patrón
+    for (let i = 0; i <= sequence.length - pattern.length - 1; i++) {
+      const currentSequence = sequence.slice(i, i + pattern.length).join('')
+
+      if (currentSequence === pattern) {
+        // Marcar las velas del patrón
+        for (let j = 0; j < pattern.length; j++) {
+          candlesWithPatterns[i + j] = {
+            ...candlesWithPatterns[i + j],
+            isPatternCandle: true,
+            patternPosition: j,
+            patternType: pattern[j],
+            isPatternStart: j === 0
+          }
+        }
+
+        // Marcar la vela de entrada (siguiente al patrón)
+        const entryIndex = i + pattern.length
+        if (entryIndex < candlesWithPatterns.length) {
+          const entryCandle = candlesWithPatterns[entryIndex]
+          const isEntryCorrect = direction === 'CALL'
+            ? entryCandle.close >= entryCandle.open
+            : entryCandle.close < entryCandle.open
+
+          candlesWithPatterns[entryIndex] = {
+            ...entryCandle,
+            isEntry: true,
+            entryType: isEntryCorrect ? 'win' : 'loss',
+            entryDirection: direction
+          }
+        }
+      }
+    }
+
+    return candlesWithPatterns
+  }, [])
+
   // Datos simulados como fallback
 const generateFallbackData = useCallback(() => {
   const data: CandleData[] = []
@@ -113,56 +163,6 @@ const generateFallbackData = useCallback(() => {
   setCandleData(candlesWithPatterns)
   console.log('Usando datos simulados como fallback')
 }, [strategy, detectPatterns])
-
-  // Función para detectar patrones automáticamente
-  const detectPatterns = useCallback((candles: CandleData[], strategy: Strategy) => {
-    if (!strategy || !candles.length) return candles
-
-    const candlesWithPatterns = [...candles]
-    const pattern = strategy.pattern || 'RRR'
-    const direction = strategy.direction || 'CALL'
-    
-    // Convertir velas a secuencia R/V
-    const sequence = candles.map(candle => 
-      candle.close >= candle.open ? 'V' : 'R'
-    )
-    
-    // Buscar coincidencias del patrón
-    for (let i = 0; i <= sequence.length - pattern.length - 1; i++) {
-      const currentSequence = sequence.slice(i, i + pattern.length).join('')
-      
-      if (currentSequence === pattern) {
-        // Marcar las velas del patrón
-        for (let j = 0; j < pattern.length; j++) {
-          candlesWithPatterns[i + j] = {
-            ...candlesWithPatterns[i + j],
-            isPatternCandle: true,
-            patternPosition: j,
-            patternType: pattern[j],
-            isPatternStart: j === 0
-          }
-        }
-        
-        // Marcar la vela de entrada (siguiente al patrón)
-        const entryIndex = i + pattern.length
-        if (entryIndex < candlesWithPatterns.length) {
-          const entryCandle = candlesWithPatterns[entryIndex]
-          const isEntryCorrect = direction === 'CALL' 
-            ? entryCandle.close >= entryCandle.open 
-            : entryCandle.close < entryCandle.open
-          
-          candlesWithPatterns[entryIndex] = {
-            ...entryCandle,
-            isEntry: true,
-            entryType: isEntryCorrect ? 'win' : 'loss',
-            entryDirection: direction
-          }
-        }
-      }
-    }
-    
-    return candlesWithPatterns
-  }, [])
 
   // Cargar datos reales de Supabase
   const fetchRealCandleData = useCallback(async () => {
