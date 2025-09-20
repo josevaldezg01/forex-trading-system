@@ -492,67 +492,67 @@ return (
           </div>
         </div>
         
-        {/* Tooltip mejorado */}
-        {hoveredCandle && (
-          <div 
-            className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
-            style={{ 
-              left: hoveredCandle.x + 10,
-              top: hoveredCandle.y - 10,
-              transform: hoveredCandle.x > window.innerWidth - 250 ? 'translateX(-100%)' : 'none'
-            }}
-          >
-            <div className="text-xs space-y-1">
-              <div className="text-white font-semibold border-b border-gray-600 pb-1">
-                {hoveredCandle.candle.date} {hoveredCandle.candle.time}
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 text-gray-300">
-                <div>Open:</div>
-                <div className="text-white">{hoveredCandle.candle.open}</div>
-                <div>High:</div>
-                <div className="text-green-400">{hoveredCandle.candle.high}</div>
-                <div>Low:</div>
-                <div className="text-red-400">{hoveredCandle.candle.low}</div>
-                <div>Close:</div>
-                <div className={hoveredCandle.candle.close > hoveredCandle.candle.open ? 'text-green-400' : 'text-red-400'}>
-                  {hoveredCandle.candle.close}
-                </div>
-              </div>
-              
-              {hoveredCandle.candle.isPatternCandle && (
-                <div className="border-t border-gray-600 pt-1 mt-1">
-                  <div className="text-xs font-medium text-yellow-400">
-                    Patrón: {hoveredCandle.candle.patternType} (Pos. {(hoveredCandle.candle.patternPosition || 0) + 1})
-                  </div>
-                </div>
-              )}
-              
-              {hoveredCandle.candle.isEntry && (
-                <div className="border-t border-gray-600 pt-1 mt-1">
-                  <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
-                    Entrada {hoveredCandle.candle.entryDirection || 'DESCONOCIDA'}: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
-                  </div>
-                </div>
-              )}
-              
-              {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
-                <div className="border-t border-gray-600 pt-1 mt-1">
-                  <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
-                    Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
-                  </div>
-                </div>
-              )}
-              
-              {hoveredCandle.candle.isPatternStart && !hoveredCandle.candle.isPatternCandle && (
-                <div className="border-t border-gray-600 pt-1 mt-1">
-                  <div className="text-xs font-medium text-yellow-400">
-                    Patrón detectado: {strategy?.pattern}
-                  </div>
-                </div>
-              )}
-            </div>
+{/* Tooltip mejorado */}
+{hoveredCandle && (
+  <div
+    className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
+    style={{
+      left: Math.min(hoveredCandle.x + 10, window.innerWidth - 200), // Evitar salirse por la derecha
+      top: Math.max(hoveredCandle.y - 80, 10), // Posicionar arriba del cursor y evitar salirse por arriba
+      maxWidth: '180px' // Limitar ancho para que no sea muy grande
+    }}
+  >
+    <div className="text-xs space-y-1">
+      <div className="text-white font-semibold border-b border-gray-600 pb-1">
+        {hoveredCandle.candle.date} {hoveredCandle.candle.time}
+      </div>
+      <div className="grid grid-cols-2 gap-x-2 text-gray-300"> {/* Reducir gap */}
+        <div>Open:</div>
+        <div className="text-white text-right">{hoveredCandle.candle.open}</div>
+        <div>High:</div>
+        <div className="text-green-400 text-right">{hoveredCandle.candle.high}</div>
+        <div>Low:</div>
+        <div className="text-red-400 text-right">{hoveredCandle.candle.low}</div>
+        <div>Close:</div>
+        <div className={`text-right ${hoveredCandle.candle.close > hoveredCandle.candle.open ? 'text-green-400' : 'text-red-400'}`}>
+          {hoveredCandle.candle.close}
+        </div>
+      </div>
+
+      {hoveredCandle.candle.isPatternCandle && (
+        <div className="border-t border-gray-600 pt-1 mt-1">
+          <div className="text-xs font-medium text-yellow-400">
+            Patrón: {hoveredCandle.candle.patternType} (Pos. {(hoveredCandle.candle.patternPosition || 0) + 1})
           </div>
-        )}
+        </div>
+      )}
+
+      {hoveredCandle.candle.isEntry && (
+        <div className="border-t border-gray-600 pt-1 mt-1">
+          <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+            Entrada {hoveredCandle.candle.entryDirection || 'DESCONOCIDA'}: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+          </div>
+        </div>
+      )}
+
+      {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
+        <div className="border-t border-gray-600 pt-1 mt-1">
+          <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+            Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+          </div>
+        </div>
+      )}
+
+      {hoveredCandle.candle.isPatternStart && !hoveredCandle.candle.isPatternCandle && (
+        <div className="border-t border-gray-600 pt-1 mt-1">
+          <div className="text-xs font-medium text-yellow-400">
+            Patrón detectado: {strategy?.pattern}
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
       </div>
     )
   }
