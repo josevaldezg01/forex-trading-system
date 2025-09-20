@@ -1,15 +1,15 @@
-# .github/workflows/update-forex.yml
 name: Update Forex Real Time
+
 on:
   schedule:
-    - cron: '* * * * *'        # CADA MINUTO durante horario de mercado
-    - cron: '0 0 * * *'        # Limpieza diaria a medianoche
-  workflow_dispatch:           # Permite ejecución manual desde GitHub
+    - cron: '* * * * *'
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   update-realtime:
-    runs-on: self-hosted       # Tu PC Windows
-    timeout-minutes: 5         # Máximo 5 minutos por ejecución
+    runs-on: self-hosted
+    timeout-minutes: 5
     
     steps:
       - name: Checkout code
@@ -33,4 +33,4 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           python scripts/mt5_github_updater.py
-        continue-on-error: true  # No fallar si hay error temporal
+        continue-on-error: true
