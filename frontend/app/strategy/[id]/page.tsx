@@ -560,6 +560,7 @@ return (
       </div>
     </div>
   </div>
+  )
 }
 
 // Datos para el gráfico
