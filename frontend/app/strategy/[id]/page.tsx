@@ -260,7 +260,23 @@ const generateFallbackData = useCallback(() => {
   }
 
   // Componente de gráfico de velas
-const CandlestickChart = ({ data }: { data: any[] }) => {
+const CandlestickChart = ({ data }: { data: Array<{
+  index: number
+  price: number
+  open: number
+  high: number
+  low: number
+  close: number
+  date: string
+  time: string
+  isEntry?: boolean
+  entryType?: 'win' | 'loss'
+  isPatternStart?: boolean
+  isPatternCandle?: boolean
+  patternType?: string
+  patternPosition?: number
+  entryDirection?: string
+}> }) => {
   const candlesToShow = {
     '1W': 200,
     '1M': 400,
