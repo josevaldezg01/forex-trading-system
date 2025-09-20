@@ -277,6 +277,8 @@ const CandlestickChart = ({ data }: { data: Array<{
   patternPosition?: number
   entryDirection?: string
 }> }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
   const candlesToShow = {
     '1W': 200,
     '1M': 400,
@@ -297,6 +299,9 @@ const CandlestickChart = ({ data }: { data: Array<{
   const chartWidth = Math.max(displayData.length * 8, 1000)
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    // Prevenir que el re-render afecte el scroll
+    event.preventDefault()
+
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
@@ -310,10 +315,13 @@ const CandlestickChart = ({ data }: { data: Array<{
       )
 
       if (foundCandle) {
-        setHoveredCandle({
-          candle: foundCandle,
-          x: x,
-          y: y
+        // Usar requestAnimationFrame para evitar renders innecesarios
+        requestAnimationFrame(() => {
+          setHoveredCandle({
+            candle: foundCandle,
+            x: x,
+            y: y
+          })
         })
       }
     }
@@ -326,7 +334,8 @@ const CandlestickChart = ({ data }: { data: Array<{
   return (
     <div className="relative w-full bg-gray-900 rounded-lg">
       <div
-        className="overflow-x-auto overflow-y-hidden scroll-smooth"
+        ref={scrollContainerRef}
+        className="overflow-x-auto overflow-y-hidden"
         style={{ height: chartHeight + 60 + 'px' }}
         onScroll={(e) => {
           e.stopPropagation()
@@ -339,6 +348,7 @@ const CandlestickChart = ({ data }: { data: Array<{
             className="overflow-visible cursor-crosshair"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
+            style={{ pointerEvents: 'auto' }}
           >
             {/* Grid lines */}
             {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
