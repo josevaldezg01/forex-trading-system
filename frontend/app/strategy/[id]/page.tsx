@@ -280,10 +280,10 @@ export default function StrategyDetail() {
     const chartHeight = 400
     const chartWidth = Math.max(displayData.length * 8, 1000)
     
- const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
   const rect = event.currentTarget.getBoundingClientRect()
   const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  const y = event.clientY - rect.top  // Agrega esta línea que faltaba
 
   const candleIndex = Math.floor(x / 8)
 
@@ -296,8 +296,8 @@ export default function StrategyDetail() {
     if (foundCandle) {
       setHoveredCandle({
         candle: foundCandle,
-        x: x, // Usar coordenada relativa al SVG
-        y: y  // Usar coordenada relativa al SVG
+        x: x,  // Usar coordenada relativa, no event.clientX
+        y: y   // Usar coordenada relativa, no event.clientY
       })
     }
   }
