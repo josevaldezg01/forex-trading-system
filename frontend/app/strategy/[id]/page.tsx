@@ -80,39 +80,39 @@ export default function StrategyDetail() {
   }, [strategyId])
 
   // Datos simulados como fallback
-  const generateFallbackData = useCallback(() => {
-    const data: CandleData[] = []
-    const basePrice = 1.0850
-    let currentPrice = basePrice
-    
-    for (let i = 0; i < 100; i++) {
-      const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000)
-      const open = currentPrice
-      const change = (Math.random() - 0.5) * 0.004
-      const close = open + change
-      const high = Math.max(open, close) + Math.random() * 0.002
-      const low = Math.min(open, close) - Math.random() * 0.002
-      
-      data.push({
-        date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-        time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        open: parseFloat(open.toFixed(5)),
-        high: parseFloat(high.toFixed(5)),
-        low: parseFloat(low.toFixed(5)),
-        close: parseFloat(close.toFixed(5)),
-        color: close > open ? 'green' : 'red',
-        isPatternStart: Math.random() < 0.05,
-        isEntry: Math.random() < 0.02,
-        entryType: Math.random() < 0.95 ? 'win' : 'loss'
-      })
-      
-      currentPrice = close
-    }
-    
-    const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
-    setCandleData(candlesWithPatterns)
-    console.log('Usando datos simulados como fallback')
-  }, [strategy])
+const generateFallbackData = useCallback(() => {
+  const data: CandleData[] = []
+  const basePrice = 1.0850
+  let currentPrice = basePrice
+
+  for (let i = 0; i < 100; i++) {
+    const date = new Date(Date.now() - (100 - i) * 60 * 60 * 1000)
+    const open = currentPrice
+    const change = (Math.random() - 0.5) * 0.004
+    const close = open + change
+    const high = Math.max(open, close) + Math.random() * 0.002
+    const low = Math.min(open, close) - Math.random() * 0.002
+
+    data.push({
+      date: date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+      time: date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      open: parseFloat(open.toFixed(5)),
+      high: parseFloat(high.toFixed(5)),
+      low: parseFloat(low.toFixed(5)),
+      close: parseFloat(close.toFixed(5)),
+      color: close > open ? 'green' : 'red',
+      isPatternStart: Math.random() < 0.05,
+      isEntry: Math.random() < 0.02,
+      entryType: Math.random() < 0.95 ? 'win' : 'loss'
+    })
+
+    currentPrice = close
+  }
+
+  const candlesWithPatterns = strategy ? detectPatterns(data, strategy) : data
+  setCandleData(candlesWithPatterns)
+  console.log('Usando datos simulados como fallback')
+}, [strategy, detectPatterns])
 
   // Función para detectar patrones automáticamente
   const detectPatterns = useCallback((candles: CandleData[], strategy: Strategy) => {
@@ -260,70 +260,70 @@ export default function StrategyDetail() {
   }
 
   // Componente de gráfico de velas
-  const CandlestickChart = ({ data }: { data: typeof priceData }) => {
-    const candlesToShow = {
-      '1W': 200,
-      '1M': 400,
-      '3M': 600,
-      '6M': 800,
-      '1Y': 1000
-    }
-    
-    const maxCandles = candlesToShow[selectedTimeRange as keyof typeof candlesToShow] || 400
-    const displayData = data.slice(-maxCandles)
-    
-    if (displayData.length === 0) return <div>No hay datos disponibles</div>
-    
-    const maxPrice = Math.max(...displayData.map(d => d.high || d.price))
-    const minPrice = Math.min(...displayData.map(d => d.low || d.price))
-    const priceRange = maxPrice - minPrice || 0.001
-    const chartHeight = 400
-    const chartWidth = Math.max(displayData.length * 8, 1000)
-    
-const handleMouseMove = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
-  const rect = event.currentTarget.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+const CandlestickChart = ({ data }: { data: any[] }) => {
+  const candlesToShow = {
+    '1W': 200,
+    '1M': 400,
+    '3M': 600,
+    '6M': 800,
+    '1Y': 1000
+  }
 
-  const candleIndex = Math.floor(x / 8)
+  const maxCandles = candlesToShow[selectedTimeRange as keyof typeof candlesToShow] || 400
+  const displayData = data.slice(-maxCandles)
 
-  if (candleIndex >= 0 && candleIndex < displayData.length) {
-    const candle = displayData[candleIndex]
-    const foundCandle = candleData.find(c =>
-      c.date === candle.date && c.time === candle.time
-    )
+  if (displayData.length === 0) return <div>No hay datos disponibles</div>
 
-    if (foundCandle) {
-      setHoveredCandle({
-        candle: foundCandle,
-        x: x,
-        y: y
-      })
+  const maxPrice = Math.max(...displayData.map(d => d.high || d.price))
+  const minPrice = Math.min(...displayData.map(d => d.low || d.price))
+  const priceRange = maxPrice - minPrice || 0.001
+  const chartHeight = 400
+  const chartWidth = Math.max(displayData.length * 8, 1000)
+
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+    const candleIndex = Math.floor(x / 8)
+
+    if (candleIndex >= 0 && candleIndex < displayData.length) {
+      const candle = displayData[candleIndex]
+      const foundCandle = candleData.find(c =>
+        c.date === candle.date && c.time === candle.time
+      )
+
+      if (foundCandle) {
+        setHoveredCandle({
+          candle: foundCandle,
+          x: x,
+          y: y
+        })
+      }
     }
   }
-}, [displayData, candleData])
 
-const handleMouseLeave = useCallback(() => {
-  setHoveredCandle(null)
-}, [])
-return (
-  <div className="relative w-full bg-gray-900 rounded-lg">
-    <div
-      className="overflow-x-auto overflow-y-hidden scroll-smooth"
-      style={{ height: chartHeight + 60 + 'px' }}
-      onScroll={(e) => {
-        // Prevenir que otros eventos interfieran con el scroll
-        e.stopPropagation()
-      }}
-    >
-      <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
-        <svg
-          width={chartWidth}
-          height={chartHeight}
-          className="overflow-visible cursor-crosshair"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
+  const handleMouseLeave = () => {
+    setHoveredCandle(null)
+  }
+
+  return (
+    <div className="relative w-full bg-gray-900 rounded-lg">
+      <div
+        className="overflow-x-auto overflow-y-hidden scroll-smooth"
+        style={{ height: chartHeight + 60 + 'px' }}
+        onScroll={(e) => {
+          e.stopPropagation()
+        }}
+      >
+        <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
+          <svg
+            width={chartWidth}
+            height={chartHeight}
+            className="overflow-visible cursor-crosshair"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
             {/* Grid lines */}
             {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
               <line
@@ -337,7 +337,7 @@ return (
                 strokeWidth="0.5"
               />
             ))}
-            
+
             {Array.from({ length: Math.floor(displayData.length / 20) }, (_, i) => i * 20).map((index) => (
               <line
                 key={index}
@@ -350,26 +350,26 @@ return (
                 strokeWidth="0.5"
               />
             ))}
-            
+
             {/* Render candles */}
             {displayData.map((candle, index) => {
               const x = index * 8 + 4
               const candleWidth = 6
-              
+
               const open = candle.open || candle.price
               const high = candle.high || candle.price
               const low = candle.low || candle.price
               const close = candle.close || candle.price
-              
+
               const openY = chartHeight - ((open - minPrice) / priceRange) * chartHeight
               const highY = chartHeight - ((high - minPrice) / priceRange) * chartHeight
               const lowY = chartHeight - ((low - minPrice) / priceRange) * chartHeight
               const closeY = chartHeight - ((close - minPrice) / priceRange) * chartHeight
-              
+
               const isGreen = close > open
               const bodyTop = Math.min(openY, closeY)
               const bodyHeight = Math.max(Math.abs(closeY - openY), 1)
-              
+
               return (
                 <g key={index}>
                   <rect
@@ -380,7 +380,7 @@ return (
                     fill="transparent"
                     className="hover:fill-white hover:fill-opacity-5"
                   />
-                  
+
                   <line
                     x1={x}
                     x2={x}
@@ -389,7 +389,7 @@ return (
                     stroke={isGreen ? '#10B981' : '#EF4444'}
                     strokeWidth="1"
                   />
-                  
+
                   <rect
                     x={x - candleWidth/2}
                     y={bodyTop}
@@ -400,7 +400,7 @@ return (
                     strokeWidth="1"
                     opacity="0.9"
                   />
-                  
+
                   {/* Marcadores del patrón debajo */}
                   {candle.isPatternCandle && (
                     <g>
@@ -424,7 +424,7 @@ return (
                       </text>
                     </g>
                   )}
-                  
+
                   {/* Marcador de entrada arriba */}
                   {candle.isEntry && (
                     <g>
@@ -434,7 +434,7 @@ return (
                         stroke={candle.entryType === 'win' ? '#059669' : '#dc2626'}
                         strokeWidth="2"
                       />
-                      
+
                       <text
                         x={x}
                         y={10}
@@ -445,7 +445,7 @@ return (
                       >
                         {candle.entryType === 'win' ? 'GANADA' : 'PERDIDA'}
                       </text>
-                      
+
                       <text
                         x={x}
                         y={45}
@@ -457,7 +457,7 @@ return (
                       </text>
                     </g>
                   )}
-                  
+
                   {/* Compatibilidad con marcadores originales */}
                   {candle.isEntry && !candle.entryDirection && (
                     <circle
@@ -470,7 +470,7 @@ return (
                       opacity="0.9"
                     />
                   )}
-                  
+
                   {candle.isPatternStart && !candle.isPatternCandle && (
                     <polygon
                       points={`${x},${closeY - 25} ${x-4},${closeY - 15} ${x+4},${closeY - 15}`}
@@ -483,87 +483,87 @@ return (
               )
             })}
           </svg>
-          
+
           {/* Etiquetas de precio */}
           <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-gray-300 -ml-20 py-2">
             <span className="bg-gray-800 px-2 py-1 rounded">{maxPrice.toFixed(4)}</span>
             <span className="bg-gray-800 px-2 py-1 rounded">{((maxPrice + minPrice) / 2).toFixed(4)}</span>
             <span className="bg-gray-800 px-2 py-1 rounded">{minPrice.toFixed(4)}</span>
           </div>
-          
-        {/* Timeline DENTRO del contenedor scrolleable */}
-        <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 mt-2 px-2">
-          {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
-            <span key={index} className="bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
-              {candle.date} {candle.time}
-            </span>
-          ))}
-        </div>
 
-        {/* Tooltip DENTRO del contenedor */}
-        {hoveredCandle && (
-          <div
-            className="absolute z-50 bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-lg pointer-events-none"
-            style={{
-              left: Math.min(hoveredCandle.x + 15, chartWidth - 180),
-              top: Math.max(hoveredCandle.y - 90, 10),
-              maxWidth: '170px'
-            }}
-          >
-    <div className="text-xs space-y-1">
-      <div className="text-white font-semibold border-b border-gray-600 pb-1">
-        {hoveredCandle.candle.date} {hoveredCandle.candle.time}
+          {/* Timeline DENTRO del contenedor scrolleable */}
+          <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 mt-2 px-2">
+            {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
+              <span key={index} className="bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
+                {candle.date} {candle.time}
+              </span>
+            ))}
+          </div>
+
+          {/* Tooltip DENTRO del contenedor */}
+          {hoveredCandle && (
+            <div
+              className="absolute z-50 bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-lg pointer-events-none"
+              style={{
+                left: Math.min(hoveredCandle.x + 15, chartWidth - 180),
+                top: Math.max(hoveredCandle.y - 90, 10),
+                maxWidth: '170px'
+              }}
+            >
+              <div className="text-xs space-y-1">
+                <div className="text-white font-semibold border-b border-gray-600 pb-1">
+                  {hoveredCandle.candle.date} {hoveredCandle.candle.time}
+                </div>
+                <div className="grid grid-cols-2 gap-x-2 text-gray-300">
+                  <div>Open:</div>
+                  <div className="text-white text-right">{hoveredCandle.candle.open}</div>
+                  <div>High:</div>
+                  <div className="text-green-400 text-right">{hoveredCandle.candle.high}</div>
+                  <div>Low:</div>
+                  <div className="text-red-400 text-right">{hoveredCandle.candle.low}</div>
+                  <div>Close:</div>
+                  <div className={`text-right ${hoveredCandle.candle.close > hoveredCandle.candle.open ? 'text-green-400' : 'text-red-400'}`}>
+                    {hoveredCandle.candle.close}
+                  </div>
+                </div>
+
+                {hoveredCandle.candle.isPatternCandle && (
+                  <div className="border-t border-gray-600 pt-1 mt-1">
+                    <div className="text-xs font-medium text-yellow-400">
+                      Patrón: {hoveredCandle.candle.patternType} (Pos. {(hoveredCandle.candle.patternPosition || 0) + 1})
+                    </div>
+                  </div>
+                )}
+
+                {hoveredCandle.candle.isEntry && (
+                  <div className="border-t border-gray-600 pt-1 mt-1">
+                    <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                      Entrada {hoveredCandle.candle.entryDirection || 'DESCONOCIDA'}: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+                    </div>
+                  </div>
+                )}
+
+                {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
+                  <div className="border-t border-gray-600 pt-1 mt-1">
+                    <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
+                      Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
+                    </div>
+                  </div>
+                )}
+
+                {hoveredCandle.candle.isPatternStart && !hoveredCandle.candle.isPatternCandle && (
+                  <div className="border-t border-gray-600 pt-1 mt-1">
+                    <div className="text-xs font-medium text-yellow-400">
+                      Patrón detectado: {strategy?.pattern}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-2 text-gray-300"> {/* Reducir gap */}
-        <div>Open:</div>
-        <div className="text-white text-right">{hoveredCandle.candle.open}</div>
-        <div>High:</div>
-        <div className="text-green-400 text-right">{hoveredCandle.candle.high}</div>
-        <div>Low:</div>
-        <div className="text-red-400 text-right">{hoveredCandle.candle.low}</div>
-        <div>Close:</div>
-        <div className={`text-right ${hoveredCandle.candle.close > hoveredCandle.candle.open ? 'text-green-400' : 'text-red-400'}`}>
-          {hoveredCandle.candle.close}
-        </div>
-      </div>
-
-      {hoveredCandle.candle.isPatternCandle && (
-        <div className="border-t border-gray-600 pt-1 mt-1">
-          <div className="text-xs font-medium text-yellow-400">
-            Patrón: {hoveredCandle.candle.patternType} (Pos. {(hoveredCandle.candle.patternPosition || 0) + 1})
-          </div>
-        </div>
-      )}
-
-      {hoveredCandle.candle.isEntry && (
-        <div className="border-t border-gray-600 pt-1 mt-1">
-          <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
-            Entrada {hoveredCandle.candle.entryDirection || 'DESCONOCIDA'}: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
-          </div>
-        </div>
-      )}
-
-      {hoveredCandle.candle.isEntry && !hoveredCandle.candle.entryDirection && (
-        <div className="border-t border-gray-600 pt-1 mt-1">
-          <div className={`text-xs font-medium ${hoveredCandle.candle.entryType === 'win' ? 'text-green-400' : 'text-red-400'}`}>
-            Entrada: {hoveredCandle.candle.entryType === 'win' ? 'GANADORA' : 'PERDEDORA'}
-          </div>
-        </div>
-      )}
-
-      {hoveredCandle.candle.isPatternStart && !hoveredCandle.candle.isPatternCandle && (
-        <div className="border-t border-gray-600 pt-1 mt-1">
-          <div className="text-xs font-medium text-yellow-400">
-            Patrón detectado: {strategy?.pattern}
-          </div>
-        </div>
-      )}
     </div>
-  </div>
-)}
-      </div>
-    </div>
-  </div>
   )
 }
 
