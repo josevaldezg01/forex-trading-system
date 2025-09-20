@@ -280,41 +280,46 @@ export default function StrategyDetail() {
     const chartHeight = 400
     const chartWidth = Math.max(displayData.length * 8, 1000)
     
-    const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect()
-      const x = event.clientX - rect.left
-      
-      const candleIndex = Math.floor(x / 8)
-      
-      if (candleIndex >= 0 && candleIndex < displayData.length) {
-        const candle = displayData[candleIndex]
-        const foundCandle = candleData.find(c => 
-          c.date === candle.date && c.time === candle.time
-        )
-        
-        if (foundCandle) {
-          setHoveredCandle({
-            candle: foundCandle,
-            x: event.clientX,
-            y: event.clientY
-          })
-        }
-      }
+ const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+
+  const candleIndex = Math.floor(x / 8)
+
+  if (candleIndex >= 0 && candleIndex < displayData.length) {
+    const candle = displayData[candleIndex]
+    const foundCandle = candleData.find(c =>
+      c.date === candle.date && c.time === candle.time
+    )
+
+    if (foundCandle) {
+      setHoveredCandle({
+        candle: foundCandle,
+        x: x, // Usar coordenada relativa al SVG
+        y: y  // Usar coordenada relativa al SVG
+      })
     }
+  }
+}
     
     const handleMouseLeave = () => {
       setHoveredCandle(null)
     }
 return (
-      <div className="relative w-full overflow-x-auto bg-gray-900 rounded-lg">
-        <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
-          <svg 
-            width={chartWidth} 
-            height={chartHeight} 
-            className="overflow-visible cursor-crosshair"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-          >
+  <div className="relative w-full bg-gray-900 rounded-lg">
+    <div
+      className="overflow-x-auto overflow-y-hidden"
+      style={{ height: chartHeight + 60 + 'px' }} // Espacio extra para timeline
+    >
+      <div className="relative" style={{ width: chartWidth + 'px', height: chartHeight + 'px' }}>
+        <svg
+          width={chartWidth}
+          height={chartHeight}
+          className="overflow-visible cursor-crosshair"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
             {/* Grid lines */}
             {[0.2, 0.4, 0.6, 0.8].map((ratio, i) => (
               <line
@@ -482,26 +487,25 @@ return (
             <span className="bg-gray-800 px-2 py-1 rounded">{minPrice.toFixed(4)}</span>
           </div>
           
-          {/* Timeline */}
-          <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 -mb-6">
-            {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
-              <span key={index} className="bg-gray-800 px-2 py-1 rounded">
-                {candle.date} {candle.time}
-              </span>
-            ))}
-          </div>
+        {/* Timeline DENTRO del contenedor scrolleable */}
+        <div className="absolute bottom-0 left-0 w-full flex justify-between text-xs text-gray-400 mt-2 px-2">
+          {displayData.filter((_, i) => i % Math.floor(displayData.length / 6) === 0).map((candle, index) => (
+            <span key={index} className="bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
+              {candle.date} {candle.time}
+            </span>
+          ))}
         </div>
-        
-{/* Tooltip mejorado */}
-{hoveredCandle && (
-  <div
-    className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg pointer-events-none"
-    style={{
-      left: Math.min(hoveredCandle.x + 10, window.innerWidth - 200), // Evitar salirse por la derecha
-      top: Math.max(hoveredCandle.y - 80, 10), // Posicionar arriba del cursor y evitar salirse por arriba
-      maxWidth: '180px' // Limitar ancho para que no sea muy grande
-    }}
-  >
+
+        {/* Tooltip DENTRO del contenedor */}
+        {hoveredCandle && (
+          <div
+            className="absolute z-50 bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-lg pointer-events-none"
+            style={{
+              left: Math.min(hoveredCandle.x + 15, chartWidth - 180),
+              top: Math.max(hoveredCandle.y - 90, 10),
+              maxWidth: '170px'
+            }}
+          >
     <div className="text-xs space-y-1">
       <div className="text-white font-semibold border-b border-gray-600 pb-1">
         {hoveredCandle.candle.date} {hoveredCandle.candle.time}
@@ -554,8 +558,9 @@ return (
   </div>
 )}
       </div>
-    )
-  }
+    </div>
+  </div>
+)
 
  // Datos para el gráfico
 const priceData = candleData.map((candle, index) => ({
