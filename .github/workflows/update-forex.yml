@@ -1,0 +1,36 @@
+# .github/workflows/update-forex.yml
+name: Update Forex Real Time
+on:
+  schedule:
+    - cron: '* * * * *'        # CADA MINUTO durante horario de mercado
+    - cron: '0 0 * * *'        # Limpieza diaria a medianoche
+  workflow_dispatch:           # Permite ejecución manual desde GitHub
+
+jobs:
+  update-realtime:
+    runs-on: self-hosted       # Tu PC Windows
+    timeout-minutes: 5         # Máximo 5 minutos por ejecución
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install MetaTrader5 pandas supabase python-dotenv
+          
+      - name: Update MT5 Data
+        env:
+          MT5_LOGIN: ${{ secrets.MT5_LOGIN }}
+          MT5_PASSWORD: ${{ secrets.MT5_PASSWORD }}
+          MT5_SERVER: ${{ secrets.MT5_SERVER }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python scripts/mt5_github_updater.py
+        continue-on-error: true  # No fallar si hay error temporal
