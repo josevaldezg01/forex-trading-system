@@ -560,7 +560,7 @@ return (
       </div>
     </div>
   </div>
-)
+}
 
 // Datos para el gráfico
 const priceData = candleData.map((candle, index) => ({
