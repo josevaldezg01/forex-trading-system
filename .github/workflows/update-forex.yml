@@ -16,7 +16,7 @@ jobs:
         
       - name: Install dependencies
         run: |
-          py -m pip install MetaTrader5 pandas supabase python-dotenv
+          C:\Users\it-so\AppData\Local\Programs\Python\Python312\python.exe -m pip install MetaTrader5 pandas supabase python-dotenv
         continue-on-error: true
           
       - name: Update MT5 Data
@@ -27,5 +27,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          py backend/mt5_data_downloader.py
+          C:\Users\it-so\AppData\Local\Programs\Python\Python312\python.exe backend/mt5_data_downloader.py
         continue-on-error: true
