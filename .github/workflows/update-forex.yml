@@ -14,11 +14,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: |
-          & "C:\Users\it-so\AppData\Local\Programs\Python\Python312\python.exe" -m pip install MetaTrader5 pandas supabase python-dotenv
-        continue-on-error: true
-
       - name: Update MT5 Data
         env:
           MT5_LOGIN: ${{ secrets.MT5_LOGIN }}
@@ -27,5 +22,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          & "C:\Users\it-so\AppData\Local\Programs\Python\Python312\python.exe" backend/mt5_data_downloader.py
+          python scripts/mt5_data_downloader.py
         continue-on-error: true
