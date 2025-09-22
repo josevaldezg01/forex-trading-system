@@ -170,7 +170,11 @@ def download_incremental_data(pair, mt5_timeframe, timeframe_name):
 
         # Convertir a DataFrame
         df = pd.DataFrame(rates)
-        df['time'] = pd.to_datetime(df['time'], unit='s')
+        df['time'] = pd.to_datetime(df['time'], unit='s', utc=True)  # Asegurar timezone UTC
+
+        # Convertir last_time a timezone aware si no lo está
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=timezone.utc)
 
         # Filtrar solo velas posteriores a la última en BD
         df_filtered = df[df['time'] > last_time]
