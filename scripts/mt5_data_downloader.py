@@ -202,19 +202,15 @@ def process_and_save_candles(df, pair, timeframe):
         candles_data = []
 
         for _, row in df.iterrows():
-            # Determinar color de la vela
-            color = "green" if row['close'] >= row['open'] else "red"
-
             candle = {
                 "pair": pair,
                 "timeframe": timeframe,
-                "datetime": row['time'].isoformat(),  # Cambiado de "timestamp" a "datetime"
+                "datetime": row['time'].isoformat(),
                 "open": float(row['open']),
                 "high": float(row['high']),
                 "low": float(row['low']),
                 "close": float(row['close']),
-                "volume": int(row['tick_volume']),
-                "color": color
+                "volume": int(row['tick_volume'])
             }
             candles_data.append(candle)
 
