@@ -137,6 +137,7 @@ def download_incremental_data(pair, mt5_timeframe, timeframe_name):
     try:
         symbol = get_symbol_name(pair)
         if not symbol:
+            logger.warning(f"No se pudo encontrar símbolo para {pair}")
             return 0
 
         # Obtener última fecha en la BD
@@ -145,16 +146,24 @@ def download_incremental_data(pair, mt5_timeframe, timeframe_name):
 
         # Descargar desde la última fecha hasta ahora
         now = datetime.now(timezone.utc)
+        logger.info(f"Intentando descargar {symbol} desde {last_time} hasta {now}")
 
-        # Si la última vela es muy reciente (menos de 1 hora), solo descargar últimas 100 velas
-        if (now - last_time).total_seconds() < 3600:
+        # Usar copy_rates_from_pos que es más robusto
+        # Descargar las últimas 1000 velas y filtrar localmente
+        rates = mt5.copy_rates_from_pos(symbol, mt5_timeframe, 0, 1000)
+
+        if rates is None:
+            # Intentar con menos velas si falla
+            logger.info(f"Reintentando con menos velas para {symbol}")
             rates = mt5.copy_rates_from_pos(symbol, mt5_timeframe, 0, 100)
-        else:
-            # Descargar desde la última fecha
-            rates = mt5.copy_rates_from(symbol, mt5_timeframe, last_time, now)
 
-        if rates is None or len(rates) == 0:
-            logger.info(f"No hay datos nuevos para {pair} {timeframe_name}")
+            if rates is None:
+                error = mt5.last_error()
+                logger.error(f"Error MT5 obteniendo datos para {symbol}: {error}")
+                return 0
+
+        if len(rates) == 0:
+            logger.info(f"No hay datos disponibles para {pair} {timeframe_name}")
             return 0
 
         logger.info(f"Descargadas {len(rates)} velas para {pair} {timeframe_name}")
@@ -164,18 +173,22 @@ def download_incremental_data(pair, mt5_timeframe, timeframe_name):
         df['time'] = pd.to_datetime(df['time'], unit='s')
 
         # Filtrar solo velas posteriores a la última en BD
-        df = df[df['time'] > last_time]
+        df_filtered = df[df['time'] > last_time]
 
-        if df.empty:
+        if df_filtered.empty:
             logger.info(f"No hay velas nuevas para {pair} {timeframe_name}")
             return 0
 
+        logger.info(f"Encontradas {len(df_filtered)} velas nuevas para {pair} {timeframe_name}")
+
         # Procesar y guardar
-        new_candles = process_and_save_candles(df, pair, timeframe_name)
+        new_candles = process_and_save_candles(df_filtered, pair, timeframe_name)
         return new_candles
 
     except Exception as e:
         logger.error(f"Error descargando datos incrementales para {pair}: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return 0
 
 
