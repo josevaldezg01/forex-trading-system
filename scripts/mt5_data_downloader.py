@@ -1,4 +1,4 @@
-# scripts/mt5_github_updater.py
+# scripts/mt5_data_downloader.py
 import MetaTrader5 as mt5
 import pandas as pd
 import os
@@ -109,20 +109,20 @@ def get_symbol_name(pair):
 
 
 def get_latest_candle_time(pair, timeframe):
-    """Obtener timestamp de la última vela en la base de datos"""
+    """Obtener datetime de la última vela en la base de datos"""
     try:
         result = supabase.table("forex_candles") \
-            .select("timestamp") \
+            .select("datetime") \
             .eq("pair", pair) \
             .eq("timeframe", timeframe) \
-            .order("timestamp", desc=True) \
+            .order("datetime", desc=True) \
             .limit(1) \
             .execute()
 
         if result.data:
-            # Convertir timestamp a datetime
-            timestamp_str = result.data[0]['timestamp']
-            return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            # Convertir datetime a datetime
+            datetime_str = result.data[0]['datetime']
+            return datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
         else:
             # Si no hay datos, empezar desde hace 24 horas
             return datetime.now(timezone.utc) - timedelta(hours=24)
@@ -191,7 +191,7 @@ def process_and_save_candles(df, pair, timeframe):
             candle = {
                 "pair": pair,
                 "timeframe": timeframe,
-                "timestamp": row['time'].isoformat(),
+                "datetime": row['time'].isoformat(),  # Cambiado de "timestamp" a "datetime"
                 "open": float(row['open']),
                 "high": float(row['high']),
                 "low": float(row['low']),
@@ -208,7 +208,7 @@ def process_and_save_candles(df, pair, timeframe):
         try:
             result = supabase.table("forex_candles").upsert(
                 candles_data,
-                on_conflict="pair,timeframe,timestamp"
+                on_conflict="pair,timeframe,datetime"  # Cambiado de "timestamp" a "datetime"
             ).execute()
 
             logger.info(f"Guardadas {len(candles_data)} velas para {pair} {timeframe}")
@@ -231,14 +231,14 @@ def cleanup_old_data():
         # Contar registros antes
         count_before = supabase.table("forex_candles") \
             .select("*", count="exact") \
-            .lt("timestamp", cutoff_date.isoformat()) \
+            .lt("datetime", cutoff_date.isoformat()) \
             .execute()
 
         if count_before.count and count_before.count > 0:
             # Eliminar datos antiguos
             result = supabase.table("forex_candles") \
                 .delete() \
-                .lt("timestamp", cutoff_date.isoformat()) \
+                .lt("datetime", cutoff_date.isoformat()) \
                 .execute()
 
             logger.info(f"Limpieza completada: eliminados {count_before.count} registros anteriores a {cutoff_date}")
