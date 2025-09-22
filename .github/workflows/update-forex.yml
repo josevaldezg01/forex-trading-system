@@ -21,6 +21,7 @@ jobs:
           MT5_SERVER: ${{ secrets.MT5_SERVER }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        shell: cmd
         run: |
-          cmd /c "python scripts/mt5_data_downloader.py"
+          "C:\Users\it-so\AppData\Local\Programs\Python\Python312\python.exe" scripts/mt5_data_downloader.py
         continue-on-error: true
