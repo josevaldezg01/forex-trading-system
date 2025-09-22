@@ -22,5 +22,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python scripts/mt5_data_downloader.py
+          cmd /c "python scripts/mt5_data_downloader.py"
         continue-on-error: true
