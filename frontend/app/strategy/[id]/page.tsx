@@ -576,29 +576,32 @@ export default function StrategyAnalysisPage() {
 
   const fetchRealCandleData = async (pair: string, timeframe: string) => {
     try {
-      const response = await fetch(`/api/yahoo-finance?symbol=${pair}&timeframe=${timeframe}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch real candle data')
+      // Obtener datos desde Supabase forex_candles
+      const { data: candleData, error } = await supabase
+        .from('forex_candles')
+        .select('*')
+        .eq('pair', pair)
+        .eq('timeframe', timeframe)
+        .order('timestamp', { ascending: true })
+        .limit(100)
+
+      if (error || !candleData || candleData.length === 0) {
+        throw new Error('No real data available from Supabase')
       }
 
-      const data = await response.json()
-      if (!data.success || !data.data || data.data.length === 0) {
-        throw new Error('No real data available')
-      }
-
-      const realCandles: CandleData[] = data.data.slice(0, 100).map((item: any, index: number) => ({
+      const realCandles: CandleData[] = candleData.map((item) => ({
         date: new Date(item.timestamp).toLocaleDateString(),
         time: new Date(item.timestamp).toLocaleTimeString(),
-        open: parseFloat(item.open),
-        high: parseFloat(item.high),
-        low: parseFloat(item.low),
-        close: parseFloat(item.close),
-        color: parseFloat(item.close) >= parseFloat(item.open) ? 'green' as const : 'red' as const
+        open: parseFloat(item.open.toString()),
+        high: parseFloat(item.high.toString()),
+        low: parseFloat(item.low.toString()),
+        close: parseFloat(item.close.toString()),
+        color: parseFloat(item.close.toString()) >= parseFloat(item.open.toString()) ? 'green' as const : 'red' as const
       }))
 
       return realCandles
     } catch (error) {
-      console.error('Error fetching real candle data:', error)
+      console.error('Error fetching candle data from Supabase:', error)
       return null
     }
   }
