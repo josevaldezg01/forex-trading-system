@@ -678,7 +678,7 @@ export default function StrategyAnalysisPage() {
     }
 
     loadData()
-  }, [params.id, detectOBPlusPatterns])
+  }, [params.id]) // Removí detectOBPlusPatterns de las dependencias
 
   if (isLoading) {
     return (
