@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, Target, Activity, BarChart3 } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Calendar, Target, Activity, BarChart3 } from 'lucide-react'
 
 // Supabase client
 const supabase = createClient(
@@ -250,8 +250,7 @@ const detectOBPlusPatterns = useCallback((candles: CandleData[], strategy: Strat
 // Componente de gráfico mejorado
 const ImprovedCandlestickChart: React.FC<{
   candles: CandleData[]
-  strategy?: Strategy
-}> = ({ candles, strategy }) => {
+}> = ({ candles }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const [hoveredCandle, setHoveredCandle] = useState<{
     candle: CandleData
@@ -935,7 +934,7 @@ export default function StrategyAnalysisPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <ImprovedCandlestickChart candles={candles} strategy={strategy} />
+            <ImprovedCandlestickChart candles={candles} />
           </div>
 
           <div className="mt-4 p-4 bg-gray-700 rounded-lg">
